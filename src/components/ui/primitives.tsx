@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function Card({ className, children }: { className?: string; children: ReactNode }) {
@@ -68,5 +69,43 @@ export function SeedBadge({ className }: { className?: string }) {
     <Pill tone="warn" className={cn("uppercase tracking-wider", className)}>
       seed
     </Pill>
+  );
+}
+
+/** Bottom sheet / drawer. Sits above the bottom nav (z-40). */
+export function Sheet({
+  open,
+  onClose,
+  title,
+  subtitle,
+  children,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title: ReactNode;
+  subtitle?: ReactNode;
+  children: ReactNode;
+}) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-40">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="safe-b absolute inset-x-0 bottom-0 mx-auto flex max-h-[82svh] max-w-md flex-col rounded-t-2xl border-t border-border bg-background shadow-2xl">
+        <div className="flex items-start justify-between gap-3 border-b border-border/60 px-4 py-3">
+          <div className="min-w-0">
+            <h3 className="truncate text-base font-semibold">{title}</h3>
+            {subtitle && <p className="truncate text-xs text-muted-foreground">{subtitle}</p>}
+          </div>
+          <button
+            onClick={onClose}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border text-muted-foreground"
+            aria-label="Close"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="overflow-y-auto px-4 py-4">{children}</div>
+      </div>
+    </div>
   );
 }

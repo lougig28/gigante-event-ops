@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Konva from "konva";
-import { Stage, Layer, Image as KonvaImage, Rect, Circle, Line, Text, Group } from "react-konva";
+import { Stage, Layer, Image as KonvaImage, Rect, Circle, Line, Text, Group, Transformer } from "react-konva";
 import { Plus, Minus, Maximize2, RotateCw, Lock, Unlock, Trash2, Info } from "lucide-react";
 import { useImage } from "@/hooks/useImage";
 import { kindOf, tokenHex } from "@/lib/catalogIndex";
+import { ObjectPalette } from "./ObjectPalette";
 
 export interface FloorMapObject {
   id: string;
@@ -45,6 +46,7 @@ interface Props {
   onUpdate: (id: string, patch: Record<string, unknown>) => void;
   onDelete: (id: string) => void;
   onOpenDetails: (obj: FloorMapObject) => void;
+  onCreate: (payload: Record<string, unknown>) => void;
 }
 
 const STATUS_STROKE: Record<string, string> = {
@@ -73,29 +75,36 @@ export function FloorMap({
   onUpdate,
   onDelete,
   onOpenDetails,
+  onCreate,
 }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
+  const trRef = useRef<Konva.Transformer>(null);
+  const nodeRefs = useRef<Record<string, Konva.Group>>({});
   const [size, setSize] = useState({ w: 0, h: 0 });
   const [view, setView] = useState({ scale: 1, x: 0, y: 0 });
   const [pinching, setPinching] = useState(false);
-  const fittedRef = useRef(false);
-  const pinchRef = useRef<{ dist: number; cx: number; cy: number } | null>(null);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [live, setLive] = useState<{ w: number; h: number } | null>(null);
+  const interactedRef = useRef(false);
+  const pinchRef = useRef<{ dist: number } | null>(null);
 
   const img = useImage(floorPlan.image_url ?? undefined);
   const baseW = floorPlan.base_width || 1000;
   const baseH = floorPlan.base_height || 1000;
-  const ftPerUnit = floorPlan.ft_per_unit || 0.0280;
+  const ftPerUnit = floorPlan.ft_per_unit || 0.028;
   const ftToPlan = useCallback((ft: number) => ft / ftPerUnit, [ftPerUnit]);
 
-  // Measure container
-  useEffect(() => {
+  // Measure synchronously before paint so fit applies on the first frame (no flash).
+  useLayoutEffect(() => {
     const el = wrapRef.current;
     if (!el) return;
-    const ro = new ResizeObserver((entries) => {
-      const cr = entries[0].contentRect;
-      setSize({ w: cr.width, h: cr.height });
-    });
+    const measure = () => {
+      const r = el.getBoundingClientRect();
+      setSize({ w: r.width, h: r.height });
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
@@ -110,11 +119,9 @@ export function FloorMap({
     setView({ scale: s, x: (size.w - baseW * s) / 2, y: (size.h - baseH * s) / 2 });
   }, [fitScale, size, baseW, baseH]);
 
-  useEffect(() => {
-    if (size.w && size.h && !fittedRef.current) {
-      fit();
-      fittedRef.current = true;
-    }
+  // Auto-fit on load and while the container settles, until the user pans/zooms.
+  useLayoutEffect(() => {
+    if (size.w && size.h && !interactedRef.current) fit();
   }, [size, fit]);
 
   const clampScale = useCallback(
@@ -137,9 +144,8 @@ export function FloorMap({
   const onWheel = useCallback(
     (e: Konva.KonvaEventObject<WheelEvent>) => {
       e.evt.preventDefault();
-      const stage = stageRef.current;
-      if (!stage) return;
-      const pointer = stage.getPointerPosition();
+      interactedRef.current = true;
+      const pointer = stageRef.current?.getPointerPosition();
       if (!pointer) return;
       const dir = e.evt.deltaY > 0 ? 1 / 1.08 : 1.08;
       zoomAt(pointer.x, pointer.y, view.scale * dir);
@@ -152,6 +158,7 @@ export function FloorMap({
       const touches = e.evt.touches;
       if (touches.length !== 2) return;
       e.evt.preventDefault();
+      interactedRef.current = true;
       setPinching(true);
       const [a, b] = [touches[0], touches[1]];
       const rect = stageRef.current?.container().getBoundingClientRect();
@@ -160,11 +167,8 @@ export function FloorMap({
       const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
       const cx = (a.clientX + b.clientX) / 2 - ox;
       const cy = (a.clientY + b.clientY) / 2 - oy;
-      if (pinchRef.current) {
-        const factor = dist / pinchRef.current.dist;
-        zoomAt(cx, cy, view.scale * factor);
-      }
-      pinchRef.current = { dist, cx, cy };
+      if (pinchRef.current) zoomAt(cx, cy, view.scale * (dist / pinchRef.current.dist));
+      pinchRef.current = { dist };
     },
     [view.scale, zoomAt],
   );
@@ -174,7 +178,40 @@ export function FloorMap({
     setPinching(false);
   }, []);
 
+  // Attach transformer to the selected (editable, unlocked) node
+  useEffect(() => {
+    const tr = trRef.current;
+    if (!tr) return;
+    const sel = objects.find((o) => o.id === selectedId);
+    const node = selectedId ? nodeRefs.current[selectedId] : null;
+    if (node && canEdit && sel && !sel.locked) {
+      tr.nodes([node]);
+      tr.keepRatio(!!kindOf(sel.kind)?.keepAspect);
+    } else {
+      tr.nodes([]);
+    }
+    tr.getLayer()?.batchDraw();
+  }, [selectedId, objects, canEdit, view.scale]);
+
+  const addObject = (kind: string) => {
+    const def = kindOf(kind);
+    if (!def) return;
+    const cx = (size.w / 2 - view.x) / view.scale;
+    const cy = (size.h / 2 - view.y) / view.scale;
+    onCreate({
+      kind,
+      category: def.category,
+      label: def.label,
+      width_ft: def.defaultWidthFt,
+      height_ft: def.defaultHeightFt,
+      color: def.color ?? null,
+      x: Math.round(cx),
+      y: Math.round(cy),
+    });
+  };
+
   const selected = objects.find((o) => o.id === selectedId) ?? null;
+  const k = 1 / view.scale;
 
   return (
     <div ref={wrapRef} className="relative h-full w-full touch-none overflow-hidden bg-[#0b0b0d]">
@@ -192,7 +229,10 @@ export function FloorMap({
           onTouchMove={onTouchMove}
           onTouchEnd={endPinch}
           onDragEnd={(e) => {
-            if (e.target === stageRef.current) setView((v) => ({ ...v, x: e.target.x(), y: e.target.y() }));
+            if (e.target === stageRef.current) {
+              interactedRef.current = true;
+              setView((v) => ({ ...v, x: e.target.x(), y: e.target.y() }));
+            }
           }}
           onMouseDown={(e) => {
             if (e.target === e.target.getStage()) onSelect(null);
@@ -202,22 +242,20 @@ export function FloorMap({
           }}
         >
           <Layer>
-            {/* White "paper" so the plan (dark linework on transparent) is legible */}
             <Rect
               x={0}
               y={0}
               width={baseW}
               height={baseH}
               fill="#f5f4ef"
-              cornerRadius={10 / view.scale}
+              cornerRadius={10 * k}
               shadowColor="#000"
-              shadowBlur={40 / view.scale}
+              shadowBlur={40 * k}
               shadowOpacity={0.55}
               listening={false}
             />
             {img && <KonvaImage image={img} width={baseW} height={baseH} listening={false} />}
 
-            {/* Zones */}
             {zones.map((z) => {
               if (!z.points?.length) return null;
               const flat = z.points.flatMap((p) => [p.x, p.y]);
@@ -226,18 +264,18 @@ export function FloorMap({
               const hex = tokenHex(z.color);
               return (
                 <Group key={z.id} listening={false}>
-                  <Line points={flat} closed fill={hex} opacity={0.1} stroke={hex} strokeWidth={3 / view.scale} dash={[12 / view.scale, 8 / view.scale]} />
+                  <Line points={flat} closed fill={hex} opacity={0.1} stroke={hex} strokeWidth={3 * k} dash={[12 * k, 8 * k]} />
                   <Text
                     text={z.name.toUpperCase()}
                     x={cx}
                     y={cy}
                     width={4000}
                     offsetX={2000}
-                    offsetY={7 / view.scale}
+                    offsetY={7 * k}
                     align="center"
-                    fontSize={Math.min(13 / view.scale, 240)}
+                    fontSize={Math.min(13 * k, 240)}
                     fontStyle="bold"
-                    letterSpacing={Math.min(2 / view.scale, 30)}
+                    letterSpacing={Math.min(2 * k, 30)}
                     fill={hex}
                     opacity={0.7}
                   />
@@ -245,7 +283,6 @@ export function FloorMap({
               );
             })}
 
-            {/* Objects */}
             {objects.map((o) => {
               const def = kindOf(o.kind);
               const pw = ftToPlan(o.width_ft);
@@ -254,11 +291,14 @@ export function FloorMap({
               const fill = tokenHex(o.color ?? def?.color);
               const stroke = isSel ? "#FFFFFF" : STATUS_STROKE[o.status] ?? "#D4AF37";
               const round = def?.shape === "circle" || def?.keepAspect;
-              const screenW = pw * view.scale;
-              const showLabel = screenW > 46 && o.label;
+              const showLabel = pw * view.scale > 46 && o.label;
               return (
                 <Group
                   key={o.id}
+                  ref={(n) => {
+                    if (n) nodeRefs.current[o.id] = n;
+                    else delete nodeRefs.current[o.id];
+                  }}
                   x={o.x}
                   y={o.y}
                   rotation={o.rotation || 0}
@@ -266,15 +306,29 @@ export function FloorMap({
                   onClick={() => onSelect(o.id)}
                   onTap={() => onSelect(o.id)}
                   onDragEnd={(e) => onMove(o.id, Math.round(e.target.x()), Math.round(e.target.y()))}
+                  onTransform={(e) => {
+                    const n = e.target;
+                    setLive({ w: o.width_ft * Math.abs(n.scaleX()), h: o.height_ft * Math.abs(n.scaleY()) });
+                  }}
+                  onTransformEnd={(e) => {
+                    const n = e.target;
+                    const nw = Math.max(0.5, o.width_ft * Math.abs(n.scaleX()));
+                    const nh = Math.max(0.5, o.height_ft * Math.abs(n.scaleY()));
+                    const rot = n.rotation();
+                    n.scaleX(1);
+                    n.scaleY(1);
+                    setLive(null);
+                    onUpdate(o.id, {
+                      width_ft: Math.round(nw * 10) / 10,
+                      height_ft: Math.round(nh * 10) / 10,
+                      rotation: Math.round(rot),
+                      x: Math.round(n.x()),
+                      y: Math.round(n.y()),
+                    });
+                  }}
                 >
                   {round ? (
-                    <Circle
-                      radius={pw / 2}
-                      fill={fill}
-                      opacity={0.85}
-                      stroke={stroke}
-                      strokeWidth={(isSel ? 3 : 1.5) / view.scale}
-                    />
+                    <Circle radius={pw / 2} fill={fill} opacity={0.85} stroke={stroke} strokeWidth={(isSel ? 3 : 1.5) * k} />
                   ) : (
                     <Rect
                       x={-pw / 2}
@@ -285,106 +339,101 @@ export function FloorMap({
                       fill={fill}
                       opacity={0.85}
                       stroke={stroke}
-                      strokeWidth={(isSel ? 3 : 1.5) / view.scale}
+                      strokeWidth={(isSel ? 3 : 1.5) * k}
                     />
                   )}
                   {showLabel && (
                     <Text
                       text={o.label ?? ""}
-                      fontSize={12 / view.scale}
+                      fontSize={12 * k}
                       fontStyle="bold"
                       fill="#0b0b0d"
                       align="center"
                       width={pw * 1.6}
                       offsetX={pw * 0.8}
-                      offsetY={6 / view.scale}
+                      offsetY={6 * k}
                       listening={false}
                     />
                   )}
                 </Group>
               );
             })}
+
+            <Transformer
+              ref={trRef}
+              rotateEnabled
+              anchorSize={11 * k}
+              anchorStroke="#D4AF37"
+              anchorFill="#ffffff"
+              borderStroke="#D4AF37"
+              borderStrokeWidth={1.5 * k}
+              anchorStrokeWidth={1.5 * k}
+              rotateAnchorOffset={22 * k}
+              boundBoxFunc={(oldBox, newBox) => (newBox.width < 8 || newBox.height < 8 ? oldBox : newBox)}
+            />
           </Layer>
         </Stage>
       )}
 
       {/* Zoom controls */}
-      <div className="absolute right-3 top-3 flex flex-col gap-1.5">
-        <button
-          onClick={() => zoomAt(size.w / 2, size.h / 2, view.scale * 1.3)}
-          className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-background/85 backdrop-blur"
-          aria-label="Zoom in"
-        >
+      <div className="absolute right-3 top-3 z-10 flex flex-col gap-1.5">
+        <button onClick={() => { interactedRef.current = true; zoomAt(size.w / 2, size.h / 2, view.scale * 1.3); }} className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-background/85 backdrop-blur" aria-label="Zoom in">
           <Plus className="h-4 w-4" />
         </button>
-        <button
-          onClick={() => zoomAt(size.w / 2, size.h / 2, view.scale / 1.3)}
-          className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-background/85 backdrop-blur"
-          aria-label="Zoom out"
-        >
+        <button onClick={() => { interactedRef.current = true; zoomAt(size.w / 2, size.h / 2, view.scale / 1.3); }} className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-background/85 backdrop-blur" aria-label="Zoom out">
           <Minus className="h-4 w-4" />
         </button>
-        <button
-          onClick={fit}
-          className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-background/85 backdrop-blur"
-          aria-label="Fit to screen"
-        >
+        <button onClick={fit} className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-background/85 backdrop-blur" aria-label="Fit to screen">
           <Maximize2 className="h-4 w-4" />
         </button>
       </div>
 
       {/* Scale bar */}
-      <div className="pointer-events-none absolute bottom-3 left-3 flex flex-col items-start gap-1">
-        <div
-          className="h-1.5 rounded-sm border border-white/70 bg-white/20"
-          style={{ width: `${Math.max(20, ftToPlan(10) * view.scale)}px` }}
-        />
+      <div className="pointer-events-none absolute bottom-3 left-3 z-10 flex flex-col items-start gap-1">
+        <div className="h-1.5 rounded-sm border border-white/70 bg-white/20" style={{ width: `${Math.max(20, ftToPlan(10) * view.scale)}px` }} />
         <span className="text-[10px] font-medium text-white/80">10 ft</span>
       </div>
 
+      {/* Add FAB */}
+      {canEdit && (
+        <button
+          onClick={() => setPaletteOpen(true)}
+          className="absolute bottom-4 right-4 z-10 flex h-14 w-14 items-center justify-center rounded-full bg-gold text-background shadow-lg shadow-black/40 active:scale-95"
+          aria-label="Add object"
+        >
+          <Plus className="h-6 w-6" strokeWidth={2.5} />
+        </button>
+      )}
+
       {/* Selected readout + toolbar */}
       {selected && (
-        <div className="absolute inset-x-3 bottom-3 mx-auto flex max-w-sm items-center gap-2 rounded-xl border border-border bg-background/95 px-3 py-2 shadow-lg backdrop-blur">
+        <div className="absolute inset-x-3 bottom-20 z-10 mx-auto flex max-w-sm items-center gap-2 rounded-xl border border-border bg-background/95 px-3 py-2 shadow-lg backdrop-blur">
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-semibold">{selected.label ?? kindOf(selected.kind)?.label ?? selected.kind}</div>
             <div className="tabular-nums text-xs text-muted-foreground">
-              {ftIn(selected.width_ft)} × {ftIn(selected.height_ft)} · {Math.round(selected.rotation || 0)}°
+              {live ? ftIn(live.w) : ftIn(selected.width_ft)} × {live ? ftIn(live.h) : ftIn(selected.height_ft)} · {Math.round(selected.rotation || 0)}°
             </div>
           </div>
-          <button
-            onClick={() => onOpenDetails(selected)}
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-gold"
-            aria-label="Details"
-          >
+          <button onClick={() => onOpenDetails(selected)} className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-gold" aria-label="Details">
             <Info className="h-4 w-4" />
           </button>
           {canEdit && (
             <>
-              <button
-                onClick={() => onUpdate(selected.id, { rotation: ((selected.rotation || 0) + 15) % 360 })}
-                className="flex h-8 w-8 items-center justify-center rounded-lg border border-border"
-                aria-label="Rotate"
-              >
+              <button onClick={() => onUpdate(selected.id, { rotation: ((selected.rotation || 0) + 15) % 360 })} className="flex h-8 w-8 items-center justify-center rounded-lg border border-border" aria-label="Rotate">
                 <RotateCw className="h-4 w-4" />
               </button>
-              <button
-                onClick={() => onUpdate(selected.id, { locked: !selected.locked })}
-                className="flex h-8 w-8 items-center justify-center rounded-lg border border-border"
-                aria-label="Lock"
-              >
+              <button onClick={() => onUpdate(selected.id, { locked: !selected.locked })} className="flex h-8 w-8 items-center justify-center rounded-lg border border-border" aria-label="Lock">
                 {selected.locked ? <Lock className="h-4 w-4 text-warn" /> : <Unlock className="h-4 w-4" />}
               </button>
-              <button
-                onClick={() => onDelete(selected.id)}
-                className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-crit"
-                aria-label="Delete"
-              >
+              <button onClick={() => onDelete(selected.id)} className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-crit" aria-label="Delete">
                 <Trash2 className="h-4 w-4" />
               </button>
             </>
           )}
         </div>
       )}
+
+      <ObjectPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} onPick={addObject} />
     </div>
   );
 }

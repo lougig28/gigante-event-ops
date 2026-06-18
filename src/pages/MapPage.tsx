@@ -1,18 +1,20 @@
 import { useState } from "react";
 import { useEventData } from "@/hooks/useEventData";
 import { FloorMap, type FloorMapObject, type FloorMapZone } from "@/components/map/FloorMap";
+import { ObjectSheet } from "@/components/map/ObjectSheet";
 import { Card, Pill } from "@/components/ui/primitives";
 import { Lock, Ruler, Maximize2 } from "lucide-react";
 
 export function MapPage() {
-  const { floorPlan, objects, zones, canEdit, isLive, mutate } = useEventData();
+  const { floorPlan, objects, zones, staff, canEdit, isLive, mutate } = useEventData();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [detailId, setDetailId] = useState<string | null>(null);
 
   if (!isLive || !floorPlan) {
     return (
       <div className="space-y-3">
         <div className="relative overflow-hidden rounded-xl border border-border bg-black">
-          <img src="/floorplan.jpg" alt="Lake Isle poolside floor plan" className="h-[56vh] w-full object-contain" />
+          <img src="/floorplan.png" alt="Lake Isle poolside floor plan" className="h-[56vh] w-full bg-[#f5f4ef] object-contain" />
           <div className="absolute left-2 top-2 flex gap-1.5">
             <Pill tone="gold">
               <Lock className="h-3 w-3" /> base locked
@@ -34,6 +36,11 @@ export function MapPage() {
   const footW = Math.round((floorPlan.base_width || 0) * ftPerUnit);
   const footH = Math.round((floorPlan.base_height || 0) * ftPerUnit);
 
+  const objs = objects as FloorMapObject[];
+  const detailObj = objs.find((o) => o.id === detailId) ?? null;
+  const detailZone = detailObj ? zones.find((z) => z.id === detailObj.zone_id)?.name ?? null : null;
+  const staffInZone = detailZone ? staff.filter((s) => s.zone === detailZone) : [];
+
   return (
     <div className="relative -mx-3 -mt-3 h-[calc(100svh-118px)] overflow-hidden">
       <div className="pointer-events-none absolute left-3 top-3 z-10 flex flex-wrap gap-1.5">
@@ -47,7 +54,7 @@ export function MapPage() {
 
       <FloorMap
         floorPlan={floorPlan}
-        objects={objects as FloorMapObject[]}
+        objects={objs}
         zones={zones as FloorMapZone[]}
         canEdit={canEdit}
         selectedId={selectedId}
@@ -57,8 +64,19 @@ export function MapPage() {
         onDelete={(id) => {
           void mutate("obj.delete", { id });
           setSelectedId(null);
+          if (detailId === id) setDetailId(null);
         }}
-        onOpenDetails={(o) => setSelectedId(o.id)}
+        onOpenDetails={(o) => setDetailId(o.id)}
+        onCreate={(p) => void mutate("obj.upsert", p)}
+      />
+
+      <ObjectSheet
+        obj={detailObj}
+        zoneName={detailZone}
+        staffInZone={staffInZone}
+        canEdit={canEdit}
+        onClose={() => setDetailId(null)}
+        onStatus={(status) => detailObj && void mutate("obj.upsert", { id: detailObj.id, status })}
       />
     </div>
   );
