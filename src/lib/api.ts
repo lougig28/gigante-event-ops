@@ -52,3 +52,19 @@ export async function op(
   if (data && (data as any).error) throw new Error((data as any).error);
   return data;
 }
+
+/** List all share links for the event (owner/manager only). */
+export async function shareList(token: string): Promise<any[]> {
+  const { data, error } = await (supabase.rpc as any)("share_list", { p_token: token });
+  if (error) throw error;
+  if (data && data.error) throw new Error(data.error);
+  return Array.isArray(data) ? data : [];
+}
+
+/** Toggle a share link's revoked state (owner/manager only). */
+export async function shareToggle(token: string, id: string): Promise<any> {
+  const { data, error } = await (supabase.rpc as any)("share_revoke", { p_token: token, p_id: id });
+  if (error) throw error;
+  if (data && data.error) throw new Error(data.error);
+  return data;
+}
