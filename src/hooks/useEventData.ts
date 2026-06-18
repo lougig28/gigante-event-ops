@@ -102,6 +102,7 @@ export function useEventData(): EventData {
     endTime: s.end_time ?? null,
     notes: s.notes ?? null,
     check: (s.check_in ?? "scheduled") as CheckState,
+    checkInAt: s.check_in_at ?? null,
   }));
 
   const checklists: SeedChecklist[] = [...snapshot.checklists]

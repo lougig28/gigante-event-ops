@@ -17,6 +17,35 @@ function etToday(): string {
   }).format(new Date());
 }
 
+// ── Name matching (Toast employee names → our Sling roster) ──────────────────
+// SR/Toast spell names many ways; canonicalize first names + match on
+// first + last-initial, tolerating single-initial first names ("G Mayorga").
+const NICK: Record<string, string> = {
+  danny: "daniel", dan: "daniel", fab: "fabrisio", fabricio: "fabrisio",
+  gabby: "gabriella", gabi: "gabriella", chris: "christopher", topher: "christopher",
+  mike: "michael", liz: "elizabeth", tony: "anthony", alex: "alexandra",
+  nick: "nicholas", will: "william", tianna: "tianna",
+};
+function parseName(n: string) {
+  const p = String(n || "").toLowerCase().replace(/[.,]/g, "").trim().split(/\s+/).filter(Boolean);
+  const first = p[0] ?? "";
+  const last = p.length > 1 ? p[p.length - 1] : "";
+  return { first, last, fi: first[0] ?? "", li: last[0] ?? "" };
+}
+function nameMatch(rosterName: string, toastName: string): boolean {
+  const s = parseName(rosterName);
+  const t = parseName(toastName);
+  const sf = NICK[s.first] ?? s.first;
+  const tf = NICK[t.first] ?? t.first;
+  const firstOk =
+    sf === tf ||
+    (s.first.length === 1 && s.fi === t.fi) ||
+    (t.first.length === 1 && t.fi === s.fi);
+  if (!firstOk) return false;
+  if (!s.last || !t.last) return true; // single-name roster entry → first-name match is enough
+  return s.last === t.last || s.li === t.li;
+}
+
 async function syncToast(
   eventDate?: string,
 ): Promise<{ state: string; message: string; netSales?: number; drinks?: number }> {
@@ -123,6 +152,77 @@ async function syncSevenRooms(
   }
 }
 
+// Live clock-in from Toast Labor: who is on the clock right now → set our roster's
+// check_in. Matches Toast employees to our seeded staff by name.
+async function syncToastCrew(
+  sb: any,
+  eventId: string,
+  eventDate?: string,
+): Promise<{ state: string; message: string; onClock?: number; matched?: number }> {
+  const id = Deno.env.get("TOAST_CLIENT_ID");
+  const secret = Deno.env.get("TOAST_CLIENT_SECRET");
+  const guid = (Deno.env.get("TOAST_RESTAURANT_GUID") || DEFAULT_GUID).trim();
+  if (!id || !secret) return { state: "stubbed", message: "Awaiting Toast creds" };
+  const day = eventDate || etToday();
+  try {
+    const res = await fetch("https://ws-api.toasttab.com/authentication/v1/authentication/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clientId: id.trim(), clientSecret: secret.trim(), userAccessType: "TOAST_MACHINE_CLIENT" }),
+    });
+    const auth = await res.json().catch(() => ({}));
+    const token = auth?.token?.accessToken ?? auth?.accessToken;
+    if (!res.ok || !token) return { state: "error", message: `Toast auth failed (HTTP ${res.status})` };
+    const h = { Authorization: `Bearer ${token}`, "Toast-Restaurant-External-ID": guid };
+
+    const startISO = `${day}T00:00:00.000-04:00`;
+    const endISO = `${day}T23:59:59.999-04:00`;
+    const teRes = await fetch(
+      `https://ws-api.toasttab.com/labor/v1/timeEntries?startDate=${encodeURIComponent(startISO)}&endDate=${encodeURIComponent(endISO)}`,
+      { headers: h },
+    );
+    const entries = await teRes.json().catch(() => null);
+    if (!teRes.ok) return { state: "error", message: `Toast labor unavailable (HTTP ${teRes.status}) — enable Labor scope` };
+    if (!Array.isArray(entries)) return { state: "error", message: "Toast labor: unexpected response" };
+
+    // Resolve employee GUIDs → names (paginated).
+    const empById: Record<string, string> = {};
+    for (let page = 1; page <= 6; page++) {
+      const emps = await fetch(`https://ws-api.toasttab.com/labor/v1/employees?pageSize=100&page=${page}`, { headers: h })
+        .then((r) => r.json())
+        .catch(() => []);
+      if (!Array.isArray(emps) || emps.length === 0) break;
+      for (const e of emps) empById[e.guid] = `${e.firstName ?? ""} ${e.lastName ?? ""}`.trim();
+      if (emps.length < 100) break;
+    }
+
+    // On-shift = has an inDate today and no outDate.
+    const onClock: { name: string; inAt: string }[] = [];
+    for (const te of entries) {
+      const g = te?.employeeReference?.guid;
+      const name = g ? empById[g] : "";
+      if (name && te.inDate && !te.outDate) onClock.push({ name, inAt: te.inDate });
+    }
+
+    const { data: staff } = await sb.from("staff").select("id, name, check_in").eq("event_id", eventId);
+    let matched = 0;
+    for (const s of staff ?? []) {
+      const hit = onClock.find((c) => nameMatch(s.name, c.name));
+      if (hit) {
+        matched++;
+        if (s.check_in !== "checked_in")
+          await sb.from("staff").update({ check_in: "checked_in", check_in_at: hit.inAt }).eq("id", s.id);
+      } else if (s.check_in === "checked_in") {
+        // clocked out since last sync → revert to scheduled
+        await sb.from("staff").update({ check_in: "scheduled", check_in_at: null }).eq("id", s.id);
+      }
+    }
+    return { state: "live", message: `${onClock.length} on the clock · ${matched} matched (Toast)`, onClock: onClock.length, matched };
+  } catch (e) {
+    return { state: "error", message: String(e).slice(0, 140) };
+  }
+}
+
 Deno.serve(async (req) => {
   const syncKey = Deno.env.get("SYNC_KEY");
   if (syncKey && req.headers.get("x-sync-key") !== syncKey)
@@ -138,14 +238,15 @@ Deno.serve(async (req) => {
       const { count } = await q;
       return count ?? 0;
     };
+    const toast = await syncToast(ev.date);
+    const sr = await syncSevenRooms(id, sb, ev.date);
+    const crew = await syncToastCrew(sb, id, ev.date); // updates staff.check_in from Toast clock-ins
     const [staffSched, checkedIn, tasksTotal, tasksDone] = await Promise.all([
       cnt("staff"),
       cnt("staff", "check_in", "checked_in"),
       cnt("tasks"),
       cnt("tasks", "status", "done"),
     ]);
-    const toast = await syncToast(ev.date);
-    const sr = await syncSevenRooms(id, sb, ev.date);
     const patch: Record<string, unknown> = {
       staff_scheduled: staffSched,
       staff_checked_in: checkedIn,
@@ -161,11 +262,11 @@ Deno.serve(async (req) => {
     for (const c of [
       { connector: "toast", state: toast.state, message: toast.message },
       { connector: "sevenrooms", state: sr.state, message: sr.message },
-      { connector: "sling", state: "stubbed", message: "No Sling API yet — roster seeded from briefing" },
+      { connector: "sling", state: crew.state, message: crew.message },
       { connector: "tripleseat", state: "off", message: "Optional for this event" },
     ])
       await sb.from("connector_status").upsert({ event_id: id, last_sync_at: stamp, ...c }, { onConflict: "event_id,connector" });
-    out[id] = { toast: toast.state, toast_msg: toast.message, sevenrooms: sr.state, sr_msg: sr.message };
+    out[id] = { toast: toast.state, toast_msg: toast.message, sevenrooms: sr.state, sr_msg: sr.message, crew: crew.state, crew_msg: crew.message };
   }
   return new Response(JSON.stringify({ ok: true, synced_at: new Date().toISOString(), events: out }), {
     headers: { "Content-Type": "application/json" },

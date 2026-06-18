@@ -68,6 +68,7 @@ export interface SeedStaff {
   endTime?: string | null;
   notes?: string | null;
   check: CheckState;
+  checkInAt?: string | null;
 }
 
 const groups: Array<{ position: string; count: number; call: string; zone: string; check: CheckState }> = [

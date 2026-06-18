@@ -5,12 +5,23 @@ import { Phone } from "lucide-react";
 const fmt = (iso?: string | null) =>
   iso ? new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" }) : "—";
 
+// First name + last initial ("Alexandra Kuzian" → "Alexandra K."). Single names and
+// placeholders (Additional Busser 1, TBD …) are left as-is.
+const shortName = (name: string) => {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length < 2) return name;
+  const last = parts[parts.length - 1];
+  if (/^\d+$/.test(last) || /^(additional|tbd)/i.test(parts[0])) return name;
+  return `${parts[0]} ${last[0].toUpperCase()}.`;
+};
+
 /** Roster grouped by role (Sling 6/18). One headcount per person; dual-role staff
  *  appear under each of their roles. No live clock-in source yet. */
 export function StaffingPage() {
   const { staff } = useEventData();
   const roles = [...new Set(staff.map((s) => s.position || "Unassigned"))];
   const headcount = new Set(staff.map((s) => s.name)).size;
+  const onClock = staff.filter((s) => s.check === "checked_in").length;
 
   return (
     <div className="space-y-4">
@@ -20,7 +31,7 @@ export function StaffingPage() {
           <span className="text-base font-medium text-muted-foreground"> on the schedule</span>
         </div>
         <div className="text-xs text-muted-foreground">
-          {staff.length} assignments · Sling roster, Thu 6/18 · live clock-in pending
+          <span className="font-semibold text-ok">{onClock} clocked in</span> now · live from Toast · {staff.length} assignments · Sling 6/18
         </div>
       </div>
 
@@ -33,10 +44,15 @@ export function StaffingPage() {
               {members.map((s) => (
                 <div key={s.id} className="flex items-center justify-between gap-3 px-3 py-2.5">
                   <div className="min-w-0">
-                    <div className="truncate text-sm font-medium">{s.name}</div>
+                    <div className="truncate text-sm font-medium">{shortName(s.name)}</div>
                     {s.notes && <div className="truncate text-xs text-muted-foreground">{s.notes}</div>}
                   </div>
                   <div className="flex shrink-0 items-center gap-3">
+                    {s.check === "checked_in" && (
+                      <span className="flex items-center gap-1 rounded-full bg-ok/15 px-2 py-0.5 text-[11px] font-semibold text-ok">
+                        <span className="h-1.5 w-1.5 rounded-full bg-ok" /> {s.checkInAt ? `in ${fmt(s.checkInAt)}` : "on"}
+                      </span>
+                    )}
                     {s.callTime && (
                       <div className="text-right">
                         <div className="text-[10px] uppercase tracking-wide text-muted-foreground">call</div>

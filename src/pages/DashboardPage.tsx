@@ -157,7 +157,7 @@ export function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-2">
-        <Stat icon={Users} label="Team" value={num(counts.staffScheduled)} sub="on the schedule" tone="gold" />
+        <Stat icon={Users} label="On the clock" value={num(counts.staffCheckedIn)} sub={`of ${counts.staffScheduled} · live (Toast)`} tone="ok" />
         <Stat icon={ListChecks} label="Reminders" value={num(counts.tasksTotal)} sub="side-work standards" tone="gold" />
       </div>
 
