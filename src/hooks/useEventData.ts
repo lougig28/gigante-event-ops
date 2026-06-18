@@ -109,6 +109,7 @@ export function useEventData(): EventData {
       name: c.name,
       kind: c.kind,
       zone: zonesById[c.zone_id] ?? "",
+      zoneId: c.zone_id ?? null,
       items: snapshot.tasks
         .filter((t: any) => t.checklist_id === c.id)
         .sort((a: any, b: any) => a.sort - b.sort)

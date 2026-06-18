@@ -105,8 +105,9 @@ export interface SeedTask {
 export interface SeedChecklist {
   id: string;
   name: string;
-  kind: "opening" | "running" | "closing";
+  kind: "opening" | "running" | "closing" | "admin";
   zone: string;
+  zoneId?: string | null;
   items: SeedTask[];
 }
 
