@@ -399,8 +399,8 @@ export function FloorMap({
                   y={o.y}
                   rotation={o.rotation || 0}
                   draggable={canEdit && !o.locked}
-                  onClick={() => onSelect(o.id)}
-                  onTap={() => onSelect(o.id)}
+                  onClick={() => (canEdit ? onSelect(o.id) : onOpenDetails(o))}
+                  onTap={() => (canEdit ? onSelect(o.id) : onOpenDetails(o))}
                   onDragEnd={(e) => {
                     const g = 0.5 / ftPerUnit; // snap to 6"
                     onMove(o.id, Math.round(e.target.x() / g) * g, Math.round(e.target.y() / g) * g);

@@ -141,7 +141,7 @@ export function MapPage() {
           onClick={() => setMode("edit")}
           className={`flex items-center gap-1.5 px-3 py-1.5 ${mode === "edit" ? "bg-gold text-white" : "text-muted-foreground"}`}
         >
-          <SquarePen className="h-3.5 w-3.5" /> Edit
+          <SquarePen className="h-3.5 w-3.5" /> {canEdit ? "Edit" : "Plan"}
         </button>
         <button
           onClick={() => setMode("show")}
