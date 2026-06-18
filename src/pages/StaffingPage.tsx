@@ -16,7 +16,7 @@ const shortName = (name: string) => {
 };
 
 /** Roster grouped by role (Sling 6/18). One headcount per person; dual-role staff
- *  appear under each of their roles. No live clock-in source yet. */
+ *  appear under each of their roles. Live clock-in comes from Toast Labor (connector-sync). */
 export function StaffingPage() {
   const { staff } = useEventData();
   const roles = [...new Set(staff.map((s) => s.position || "Unassigned"))];
