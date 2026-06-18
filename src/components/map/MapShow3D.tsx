@@ -1,4 +1,4 @@
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, ContactShadows, RoundedBox, Html } from "@react-three/drei";
 import * as THREE from "three";
@@ -104,26 +104,28 @@ function Massing({ o, wx, wz, onTap }: { o: FloorMapObject; wx: number; wz: numb
   );
 }
 
-function PoolWater({ z, toWorld }: { z: FloorMapZone; toWorld: (x: number, y: number) => [number, number] }) {
-  const shape = useMemo(() => {
-    if (!z.points?.length) return null;
-    const s = new THREE.Shape();
-    z.points.forEach((p, i) => {
-      const [x, zz] = toWorld(p.x, p.y);
-      // ShapeGeometry is in XY; laid flat with rotX(-90°), local y → world -z.
-      if (i === 0) s.moveTo(x, -zz);
-      else s.lineTo(x, -zz);
-    });
-    s.closePath();
-    return s;
-  }, [z, toWorld]);
-  if (!shape) return null;
-  return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0]} receiveShadow>
-      <shapeGeometry args={[shape]} />
-      <meshStandardMaterial color="#3a9fd4" roughness={0.12} metalness={0.55} transparent opacity={0.82} side={THREE.DoubleSide} />
-    </mesh>
-  );
+// Load the original fixed floor plan as a WebGL texture (CORS-safe, no Suspense
+// crash if it fails — falls back to a blank ground).
+function usePlanTexture(url?: string | null): THREE.Texture | null {
+  const [tex, setTex] = useState<THREE.Texture | null>(null);
+  useEffect(() => {
+    if (!url) { setTex(null); return; }
+    let alive = true;
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      if (!alive) return;
+      const t = new THREE.Texture(img);
+      t.colorSpace = THREE.SRGBColorSpace;
+      t.anisotropy = 8;
+      t.needsUpdate = true;
+      setTex(t);
+    };
+    img.onerror = () => { if (alive) setTex(null); };
+    img.src = url;
+    return () => { alive = false; };
+  }, [url]);
+  return tex;
 }
 
 function StaffPin({ id, wx, wz, total, onTap }: { id: string; wx: number; wz: number; total: number; onTap?: (id: string) => void }) {
@@ -152,37 +154,46 @@ function StaffPin({ id, wx, wz, total, onTap }: { id: string; wx: number; wz: nu
   );
 }
 
-export function MapShow3D({ floorPlan, objects, zones, staffPins, onObjectTap, onZoneTap }: MapShow3DProps) {
+// Poolside + entrance region to frame (plan units): patio/clubhouse top → valet
+// bottom, poolside rooms left → lobby/bathrooms right. Clamped to the plan.
+const FRAME_BOX = { minX: 700, maxX: 11900, minY: 150, maxY: 6550 };
+
+export function MapShow3D({ floorPlan, objects, staffPins, onObjectTap, onZoneTap }: MapShow3DProps) {
   const k = floorPlan.ft_per_unit || 0.028;
-  const cx = (floorPlan.base_width * k) / 2;
-  const cz = (floorPlan.base_height * k) / 2;
+  const baseW = floorPlan.base_width || 1000;
+  const baseH = floorPlan.base_height || 1000;
+  const cx = (baseW * k) / 2;
+  const cz = (baseH * k) / 2;
   const toWorld = useMemo(() => (x: number, y: number): [number, number] => [x * k - cx, y * k - cz], [k, cx, cz]);
+  const planTex = usePlanTexture(floorPlan.image_url ?? `${import.meta.env.BASE_URL}floorplan.png`);
 
   const renderObjs = useMemo(
     () => objects.filter((o) => o.category !== "markup" && !SKIP_SHAPES.has(kindOf(o.kind)?.shape ?? "rect")),
     [objects],
   );
-  const poolZones = useMemo(() => zones.filter((z) => z.name.toLowerCase().includes("pool") && z.points?.length), [zones]);
 
-  // Rough content center + size — only for sizing lights / ground / shadows.
-  // The camera is auto-fit to the masses by drei <Bounds>.
+  // Frame to the poolside + entrance region (clamped to the plan) + every object.
   const { center, span } = useMemo(() => {
-    const pts: Array<[number, number]> = [];
-    // Frame to the event staging (objects); the pool reads as adjacent context.
+    const box = {
+      minX: Math.max(0, FRAME_BOX.minX), maxX: Math.min(baseW, FRAME_BOX.maxX),
+      minY: Math.max(0, FRAME_BOX.minY), maxY: Math.min(baseH, FRAME_BOX.maxY),
+    };
+    const pts: Array<[number, number]> = [toWorld(box.minX, box.minY), toWorld(box.maxX, box.maxY)];
     renderObjs.forEach((o) => {
       const [x, z] = toWorld(o.x, o.y);
       const r = Math.max(o.width_ft, o.height_ft) / 2;
       pts.push([x - r, z - r], [x + r, z + r]);
     });
-    if (!pts.length) pts.push([0, 0]);
-    const xs = pts.map((p) => p[0]);
-    const zs = pts.map((p) => p[1]);
+    const xs = pts.map((p) => p[0]), zs = pts.map((p) => p[1]);
     const minX = Math.min(...xs), maxX = Math.max(...xs), minZ = Math.min(...zs), maxZ = Math.max(...zs);
     return {
       center: [(minX + maxX) / 2, 0, (minZ + maxZ) / 2] as [number, number, number],
       span: Math.max(maxX - minX, maxZ - minZ, 40),
     };
-  }, [renderObjs, poolZones, toWorld]);
+  }, [renderObjs, toWorld, baseW, baseH]);
+
+  const footW = baseW * k;
+  const footH = baseH * k;
 
   return (
     <div className="absolute inset-0">
@@ -190,19 +201,19 @@ export function MapShow3D({ floorPlan, objects, zones, staffPins, onObjectTap, o
         shadows
         dpr={[1, 2]}
         gl={{ antialias: true, preserveDrawingBuffer: true }}
-        camera={{ position: [center[0], span * 3.05, center[2] + span * 0.92], fov: 30, near: 1, far: span * 18 }}
+        camera={{ position: [center[0], span * 2.7, center[2] + span * 1.0], fov: 30, near: 1, far: span * 22 }}
       >
-        <color attach="background" args={["#f1ede4"]} />
-        <hemisphereLight args={["#ffffff", "#d8d2c4", 0.92]} />
-        <ambientLight intensity={0.22} />
+        <color attach="background" args={["#eef0f3"]} />
+        <hemisphereLight args={["#ffffff", "#d8d2c4", 0.95]} />
+        <ambientLight intensity={0.25} />
         <directionalLight
-          position={[center[0] + span * 0.55, span * 1.5, center[2] + span * 0.4]}
-          intensity={1.18}
+          position={[center[0] + span * 0.5, span * 1.5, center[2] + span * 0.4]}
+          intensity={1.1}
           castShadow
           shadow-mapSize-width={2048}
           shadow-mapSize-height={2048}
           shadow-camera-near={1}
-          shadow-camera-far={span * 5}
+          shadow-camera-far={span * 6}
           shadow-camera-left={-span}
           shadow-camera-right={span}
           shadow-camera-top={span}
@@ -210,16 +221,20 @@ export function MapShow3D({ floorPlan, objects, zones, staffPins, onObjectTap, o
           shadow-bias={-0.0004}
         />
 
-        {/* Ground */}
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[center[0], -0.02, center[2]]} receiveShadow>
-          <planeGeometry args={[span * 6, span * 6]} />
-          <meshStandardMaterial color="#efeae0" roughness={0.95} metalness={0} />
+        {/* Ground: white base + the original fixed floor plan as a to-scale texture
+            (area outline, columns, exact pool shape, restrooms, valet, patio, etc.). */}
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.05, 0]} receiveShadow>
+          <planeGeometry args={[footW * 1.5, footH * 1.8]} />
+          <meshStandardMaterial color="#f4f1ea" roughness={0.97} metalness={0} />
         </mesh>
+        {planTex && (
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
+            <planeGeometry args={[footW, footH]} />
+            <meshStandardMaterial map={planTex} transparent roughness={0.94} metalness={0} polygonOffset polygonOffsetFactor={-1} />
+          </mesh>
+        )}
 
         <Suspense fallback={null}>
-          {poolZones.map((z) => (
-            <PoolWater key={z.id} z={z} toWorld={toWorld} />
-          ))}
           {renderObjs.map((o) => {
             const [wx, wz] = toWorld(o.x, o.y);
             return <Massing key={o.id} o={o} wx={wx} wz={wz} onTap={onObjectTap} />;
@@ -231,11 +246,11 @@ export function MapShow3D({ floorPlan, objects, zones, staffPins, onObjectTap, o
         </Suspense>
 
         <ContactShadows
-          position={[center[0], 0.01, center[2]]}
+          position={[center[0], 0.02, center[2]]}
           scale={span * 2.6}
           resolution={1024}
-          blur={2.6}
-          opacity={0.42}
+          blur={2.8}
+          opacity={0.32}
           far={span}
           color="#4a3f28"
         />
