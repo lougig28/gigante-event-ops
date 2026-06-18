@@ -522,8 +522,24 @@ export function FloorMap({
       {selected && (
         <div className="absolute inset-x-3 bottom-20 z-10 mx-auto flex max-w-sm items-center gap-2 rounded-xl border border-border bg-background/95 px-3 py-2 shadow-lg backdrop-blur">
           <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-semibold">{selected.label ?? kindOf(selected.kind)?.label ?? selected.kind}</div>
-            <div className="tabular-nums text-xs text-muted-foreground">
+            {canEdit ? (
+              <input
+                key={selected.id}
+                defaultValue={selected.label ?? kindOf(selected.kind)?.label ?? selected.kind}
+                onBlur={(e) => {
+                  const v = e.target.value.trim();
+                  if (v && v !== selected.label) onUpdate(selected.id, { label: v });
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                }}
+                className="w-full rounded-md border border-border bg-card px-2 py-0.5 text-sm font-semibold outline-none focus:border-gold"
+                aria-label="Label"
+              />
+            ) : (
+              <div className="truncate text-sm font-semibold">{selected.label ?? kindOf(selected.kind)?.label ?? selected.kind}</div>
+            )}
+            <div className="mt-0.5 tabular-nums text-xs text-muted-foreground">
               {live ? ftIn(live.w) : ftIn(selected.width_ft)} × {live ? ftIn(live.h) : ftIn(selected.height_ft)} · {Math.round(selected.rotation || 0)}°
             </div>
           </div>

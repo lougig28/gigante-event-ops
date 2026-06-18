@@ -111,6 +111,30 @@ export function ObjectShape({
     </Group>
   ) : null;
 
+  // ── Text label / note (markup) — transparent, text only, no box ──────────
+  if (def?.shape === "text") {
+    return (
+      <>
+        {hit}
+        <Text
+          text={o.label || def.label || ""}
+          fontSize={Math.max(6, ph * 0.8)}
+          fontStyle="bold"
+          fill="#241c08"
+          align="center"
+          verticalAlign="middle"
+          width={pw * 1.5}
+          height={ph}
+          offsetX={pw * 0.75}
+          offsetY={ph / 2}
+          wrap="none"
+          listening={false}
+        />
+        {selStroke}
+      </>
+    );
+  }
+
   // ── Round tables ─────────────────────────────────────────────────────────
   const round = def?.shape === "circle" || def?.keepAspect;
   if (cat === "seating" && round) {
