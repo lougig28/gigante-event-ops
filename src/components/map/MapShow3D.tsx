@@ -156,7 +156,7 @@ function StaffPin({ id, wx, wz, total, onTap }: { id: string; wx: number; wz: nu
 
 // Poolside + entrance region to frame (plan units): patio/clubhouse top → valet
 // bottom, poolside rooms left → lobby/bathrooms right. Clamped to the plan.
-const FRAME_BOX = { minX: 700, maxX: 11900, minY: 150, maxY: 6550 };
+const FRAME_BOX = { minX: 26, maxX: 6426, minY: 700, maxY: 11900 };
 
 export function MapShow3D({ floorPlan, objects, staffPins, onObjectTap, onZoneTap }: MapShow3DProps) {
   const k = floorPlan.ft_per_unit || 0.028;

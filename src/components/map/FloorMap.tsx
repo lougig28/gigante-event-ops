@@ -87,7 +87,7 @@ export function FloorMap({
   const interactedRef = useRef(false);
   const pinchRef = useRef<{ dist: number } | null>(null);
 
-  const img = useImage(floorPlan.image_url ?? undefined);
+  const img = useImage(floorPlan.image_url ?? `${import.meta.env.BASE_URL}floorplan.png`);
   const baseW = floorPlan.base_width || 1000;
   const baseH = floorPlan.base_height || 1000;
   const ftPerUnit = floorPlan.ft_per_unit || 0.028;
