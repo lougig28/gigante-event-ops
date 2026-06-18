@@ -99,6 +99,8 @@ export function useEventData(): EventData {
     position: s.position_name ?? "",
     zone: zonesById[s.zone_id] ?? "—",
     callTime: s.call_time,
+    endTime: s.end_time ?? null,
+    notes: s.notes ?? null,
     check: (s.check_in ?? "scheduled") as CheckState,
   }));
 

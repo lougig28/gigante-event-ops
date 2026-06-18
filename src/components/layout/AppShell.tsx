@@ -4,7 +4,7 @@ import { Activity, Map as MapIcon, Users, ListChecks, MoreHorizontal, Lock, Lock
 import { useNow } from "@/hooks/useNow";
 import { useEventData } from "@/hooks/useEventData";
 import { useEventStore } from "@/state/eventStore";
-import { ROLE_LABELS } from "@/lib/types";
+import { ROLE_LABELS, canEdit as roleCanEdit } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 /** Isolated so the per-second tick doesn't re-render the rest of the shell
@@ -46,11 +46,17 @@ export function AppShell() {
       lock();
       return;
     }
-    const code = window.prompt("Manager passcode to enable editing:");
+    const code = window.prompt("Manager passcode:");
     if (code == null) return;
     const ok = await unlock(code.trim());
-    if (!ok) window.alert("Incorrect passcode. Editing stays locked.");
+    if (!ok) window.alert("Incorrect passcode.");
   };
+
+  // Management view = passcode unlocked OR signed in with an editor-role token.
+  // Locked guests see only Live + More; Map / Staff / Side Work need the passcode.
+  const managementView = editUnlocked || (isLive && roleCanEdit(role));
+  const visibleTabs = managementView ? tabs : tabs.filter((t) => t.to === "/" || t.to === "/more");
+  const blocked = ["/map", "/staff", "/sidework"].some((p) => pathname.startsWith(p)) && !managementView;
 
   const dot = isLive ? "bg-ok" : status === "error" ? "bg-crit" : "bg-warn";
   const stateLabel = isLive ? "live" : status === "error" ? "offline" : "seed";
@@ -76,7 +82,7 @@ export function AppShell() {
               aria-label={editUnlocked ? "Lock editing" : "Unlock editing with passcode"}
             >
               {editUnlocked ? <LockOpen className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
-              <span className="hidden sm:inline">{editUnlocked ? "Editing" : "Unlock"}</span>
+              <span className="hidden sm:inline">{editUnlocked ? "Manager" : "Unlock"}</span>
             </button>
             <div className="flex flex-col items-end">
               <HeaderClock />
@@ -91,11 +97,29 @@ export function AppShell() {
       </header>
 
       <main className="flex-1 overflow-y-auto px-3 pb-28 pt-3">
-        <Outlet />
+        {blocked ? (
+          <div className="flex min-h-[65vh] flex-col items-center justify-center gap-4 px-6 text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full border border-border bg-muted/60">
+              <Lock className="h-7 w-7 text-muted-foreground" />
+            </div>
+            <div>
+              <div className="text-base font-semibold">Manager access required</div>
+              <p className="mt-1 text-sm text-muted-foreground">Enter the manager passcode to view this section.</p>
+            </div>
+            <button
+              onClick={toggleLock}
+              className="rounded-lg bg-gold px-5 py-2.5 text-sm font-semibold text-white active:scale-95"
+            >
+              Enter passcode
+            </button>
+          </div>
+        ) : (
+          <Outlet />
+        )}
       </main>
 
       <nav className={cn("safe-b fixed inset-x-0 bottom-0 z-20 mx-auto flex items-stretch justify-around border-t border-border/70 bg-background/90 backdrop-blur-md", isMap ? "max-w-md lg:max-w-none" : "max-w-md")}>
-        {tabs.map(({ to, label, icon: Icon, end }) => (
+        {visibleTabs.map(({ to, label, icon: Icon, end }) => (
           <NavLink
             key={to}
             to={to}

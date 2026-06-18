@@ -65,6 +65,8 @@ export interface SeedStaff {
   position: string;
   zone: string;
   callTime: string;
+  endTime?: string | null;
+  notes?: string | null;
   check: CheckState;
 }
 
