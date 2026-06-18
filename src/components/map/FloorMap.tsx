@@ -49,6 +49,7 @@ interface Props {
   onOpenDetails: (obj: FloorMapObject) => void;
   onCreate: (payload: Record<string, unknown>) => void;
   staffPins?: Array<{ id: string; x: number; y: number; total: number; checkedIn: number }>;
+  onStaffPinTap?: (zoneId: string) => void;
 }
 
 function ftIn(ft: number): string {
@@ -71,6 +72,7 @@ export function FloorMap({
   onOpenDetails,
   onCreate,
   staffPins,
+  onStaffPinTap,
 }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
@@ -366,9 +368,10 @@ export function FloorMap({
             {staffPins?.map((p) => {
               const color = p.checkedIn >= p.total ? "#34D399" : p.checkedIn > 0 ? "#FBBF24" : "#8A8A93";
               return (
-                <Group key={p.id} x={p.x} y={p.y} listening={false}>
-                  <Circle radius={15 * k} fill={color} stroke="#0b0b0d" strokeWidth={2 * k} shadowColor="#000" shadowBlur={6 * k} shadowOpacity={0.4} shadowOffsetY={3 * k} />
-                  <Text text={`${p.checkedIn}/${p.total}`} fontSize={10.5 * k} fontStyle="bold" fill="#0b0b0d" align="center" width={80 * k} offsetX={40 * k} offsetY={5.5 * k} />
+                <Group key={p.id} x={p.x} y={p.y} onClick={() => onStaffPinTap?.(p.id)} onTap={() => onStaffPinTap?.(p.id)}>
+                  <Circle radius={19 * k} fill="transparent" />
+                  <Circle radius={15 * k} fill={color} stroke="#0b0b0d" strokeWidth={2 * k} shadowColor="#000" shadowBlur={6 * k} shadowOpacity={0.4} shadowOffsetY={3 * k} listening={false} />
+                  <Text text={`${p.checkedIn}/${p.total}`} fontSize={10.5 * k} fontStyle="bold" fill="#0b0b0d" align="center" width={80 * k} offsetX={40 * k} offsetY={5.5 * k} listening={false} />
                 </Group>
               );
             })}

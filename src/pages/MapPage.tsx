@@ -3,6 +3,7 @@ import { useEventData } from "@/hooks/useEventData";
 import { FloorMap, type FloorMapObject, type FloorMapZone } from "@/components/map/FloorMap";
 import { ObjectSheet } from "@/components/map/ObjectSheet";
 import { LayerSheet } from "@/components/map/LayerSheet";
+import { ZoneRosterSheet } from "@/components/map/ZoneRosterSheet";
 import { LAYERS, layerOf, defaultLayers } from "@/lib/layers";
 import { Card, Pill } from "@/components/ui/primitives";
 import { Lock, Ruler, Maximize2, Layers as LayersIcon } from "lucide-react";
@@ -12,6 +13,7 @@ export function MapPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [layerOpen, setLayerOpen] = useState(false);
+  const [rosterZoneId, setRosterZoneId] = useState<string | null>(null);
   const [visible, setVisible] = useState<Set<string>>(() => defaultLayers(role));
   useEffect(() => {
     setVisible(defaultLayers(role));
@@ -77,6 +79,10 @@ export function MapPage() {
       )
     : [];
 
+  const rosterZoneName = rosterZoneId
+    ? (zones as FloorMapZone[]).find((z) => z.id === rosterZoneId)?.name ?? null
+    : null;
+  const rosterStaff = rosterZoneName ? staff.filter((s) => s.zone === rosterZoneName) : [];
   const detailObj = objs.find((o) => o.id === detailId) ?? null;
   const detailZone = detailObj ? zones.find((z) => z.id === detailObj.zone_id)?.name ?? null : null;
   const staffInZone = detailZone ? staff.filter((s) => s.zone === detailZone) : [];
@@ -116,6 +122,7 @@ export function MapPage() {
         onOpenDetails={(o) => setDetailId(o.id)}
         onCreate={(p) => void mutate("obj.upsert", p)}
         staffPins={staffPins}
+        onStaffPinTap={(zid) => setRosterZoneId(zid)}
       />
 
       <ObjectSheet
@@ -140,6 +147,13 @@ export function MapPage() {
             return n;
           })
         }
+      />
+
+      <ZoneRosterSheet
+        open={!!rosterZoneId}
+        onClose={() => setRosterZoneId(null)}
+        zoneName={rosterZoneName}
+        staff={rosterStaff}
       />
     </div>
   );
