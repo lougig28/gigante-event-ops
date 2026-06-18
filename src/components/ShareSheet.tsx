@@ -14,6 +14,7 @@ export function ShareSheet({ open, onClose, token }: { open: boolean; onClose: (
   const [copied, setCopied] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const base = import.meta.env.BASE_URL;
 
   const refresh = useCallback(async () => {
     try {
@@ -29,7 +30,7 @@ export function ShareSheet({ open, onClose, token }: { open: boolean; onClose: (
 
   const copy = async (tok: string) => {
     try {
-      await navigator.clipboard.writeText(`${origin}/?t=${tok}`);
+      await navigator.clipboard.writeText(`${origin}${base}?t=${tok}`);
       setCopied(tok);
       setTimeout(() => setCopied(null), 1500);
     } catch {
@@ -75,7 +76,7 @@ export function ShareSheet({ open, onClose, token }: { open: boolean; onClose: (
               </div>
               <div className="mt-2 flex items-center gap-2">
                 <code className="min-w-0 flex-1 truncate rounded bg-muted px-2 py-1 text-xs text-muted-foreground">
-                  {origin}/?t={l.token}
+                  {origin}{base}?t={l.token}
                 </code>
                 <button
                   onClick={() => copy(l.token)}

@@ -5,6 +5,8 @@ import path from 'node:path'
 
 // https://vite.dev/config/
 export default defineConfig({
+  // Root for local dev + Vercel; sub-path for GitHub Pages project site.
+  base: process.env.GITHUB_PAGES ? "/gigante-event-ops/" : "/",
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
