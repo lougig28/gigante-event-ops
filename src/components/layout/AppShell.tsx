@@ -44,7 +44,7 @@ export function AppShell() {
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <span className="font-['Playfair_Display',serif] text-lg font-bold leading-none text-gold">G</span>
-              <h1 className="truncate text-sm font-semibold">{event.name}</h1>
+              <h1 className="truncate font-['Playfair_Display',serif] text-base font-bold tracking-tight">{event.name}</h1>
             </div>
             <p className="truncate text-xs text-muted-foreground">{event.venue}</p>
           </div>

@@ -1,6 +1,9 @@
 import { useNow } from "@/hooks/useNow";
 import { useEventData } from "@/hooks/useEventData";
 import { pickNowNext } from "@/lib/runOfShow";
+import { RunOfShowRibbon } from "@/components/RunOfShowRibbon";
+import { EightySixBoard } from "@/components/EightySixBoard";
+import { useEventStore } from "@/state/eventStore";
 import { Card, Pill, ProgressBar, SectionTitle, SeedBadge } from "@/components/ui/primitives";
 import { Wine, Users, ListChecks, Crown, Activity, Clock } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -41,6 +44,7 @@ export function DashboardPage() {
   const now = useNow(15_000);
   const { runOfShow, metrics, connectors, counts, metricsLive } = useEventData();
   const { current, next } = pickNowNext(runOfShow, now);
+  const token = useEventStore((s) => s.token);
   const fmt = (iso: string) =>
     new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" });
 
@@ -67,6 +71,13 @@ export function DashboardPage() {
             )}
           </div>
         </Card>
+      )}
+
+      {runOfShow.length > 0 && (
+        <div>
+          <SectionTitle>Run of show</SectionTitle>
+          <RunOfShowRibbon cues={runOfShow} now={now} />
+        </div>
       )}
 
       <div>
@@ -119,6 +130,13 @@ export function DashboardPage() {
           </div>
         </Card>
       </div>
+
+      {token && (
+        <div>
+          <SectionTitle>Operations</SectionTitle>
+          <EightySixBoard token={token} />
+        </div>
+      )}
 
       <div>
         <SectionTitle>Connectors</SectionTitle>

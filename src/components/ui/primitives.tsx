@@ -93,7 +93,7 @@ export function Sheet({
       <div className="safe-b absolute inset-x-0 bottom-0 mx-auto flex max-h-[82svh] max-w-md flex-col rounded-t-2xl border-t border-border bg-background shadow-2xl">
         <div className="flex items-start justify-between gap-3 border-b border-border/60 px-4 py-3">
           <div className="min-w-0">
-            <h3 className="truncate text-base font-semibold">{title}</h3>
+            <h3 className="truncate font-['Playfair_Display',serif] text-lg font-bold">{title}</h3>
             {subtitle && <p className="truncate text-xs text-muted-foreground">{subtitle}</p>}
           </div>
           <button

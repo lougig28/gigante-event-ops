@@ -68,3 +68,26 @@ export async function shareToggle(token: string, id: string): Promise<any> {
   if (data && data.error) throw new Error(data.error);
   return data;
 }
+
+/** 86 board (out-of-stock / cut-off list — any role). */
+export async function list86(token: string): Promise<any[]> {
+  const { data, error } = await (supabase.rpc as any)("list_86", { p_token: token });
+  if (error) throw error;
+  if (data && data.error) throw new Error(data.error);
+  return Array.isArray(data) ? data : [];
+}
+export async function add86(token: string, item: string, station?: string, reason?: string): Promise<any> {
+  const { data, error } = await (supabase.rpc as any)("add_86", {
+    p_token: token,
+    p_item: item,
+    p_station: station ?? null,
+    p_reason: reason ?? null,
+  });
+  if (error) throw error;
+  return data;
+}
+export async function toggle86(token: string, id: string): Promise<any> {
+  const { data, error } = await (supabase.rpc as any)("toggle_86", { p_token: token, p_id: id });
+  if (error) throw error;
+  return data;
+}

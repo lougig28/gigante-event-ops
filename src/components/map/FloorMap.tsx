@@ -257,20 +257,20 @@ export function FloorMap({
               const hex = tokenHex(z.color);
               return (
                 <Group key={z.id} listening={false}>
-                  <Line points={flat} closed fill={hex} opacity={0.1} stroke={hex} strokeWidth={3 * k} dash={[12 * k, 8 * k]} />
+                  <Line points={flat} closed fill={z.name === "Pool" ? "transparent" : hex + "14"} stroke={hex + "70"} strokeWidth={2.2 * k} dash={[10 * k, 8 * k]} />
                   <Text
                     text={z.name.toUpperCase()}
                     x={cx}
                     y={cy}
                     width={4000}
                     offsetX={2000}
-                    offsetY={7 * k}
+                    offsetY={9 * k}
                     align="center"
-                    fontSize={Math.min(13 * k, 240)}
+                    fontSize={Math.min(12 * k, 200)}
                     fontStyle="bold"
-                    letterSpacing={Math.min(2 * k, 30)}
+                    letterSpacing={Math.min(2 * k, 26)}
                     fill={hex}
-                    opacity={0.7}
+                    opacity={view.scale > fitScale * 2.4 ? 0.16 : 0.5}
                   />
                 </Group>
               );
