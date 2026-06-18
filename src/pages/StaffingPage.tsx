@@ -37,10 +37,12 @@ export function StaffingPage() {
                     {s.notes && <div className="truncate text-xs text-muted-foreground">{s.notes}</div>}
                   </div>
                   <div className="flex shrink-0 items-center gap-3">
-                    <div className="text-right">
-                      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">call</div>
-                      <div className="tabular-nums text-sm font-semibold">{fmt(s.callTime)}</div>
-                    </div>
+                    {s.callTime && (
+                      <div className="text-right">
+                        <div className="text-[10px] uppercase tracking-wide text-muted-foreground">call</div>
+                        <div className="tabular-nums text-sm font-semibold">{fmt(s.callTime)}</div>
+                      </div>
+                    )}
                     <a
                       href="tel:"
                       className="flex h-8 w-8 items-center justify-center rounded-full border border-border text-muted-foreground"
