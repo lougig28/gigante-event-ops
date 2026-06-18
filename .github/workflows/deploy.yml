@@ -24,7 +24,9 @@ jobs:
         with:
           node-version: 20
           cache: npm
-      - run: npm ci
+      # npm install (not ci): Tailwind oxide + rolldown ship per-platform native
+      # binaries whose optional deps desync a single-OS lockfile under `npm ci`.
+      - run: npm install --no-audit --no-fund
       - name: Build
         env:
           GITHUB_PAGES: "true"
