@@ -1,8 +1,17 @@
 import { create } from "zustand";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
-import { fetchSnapshot, isSnapshotError, op, type SnapshotPayload } from "@/lib/api";
-import { getToken } from "@/lib/session";
+import { fetchSnapshot, isSnapshotError, op, unlockEdit, type SnapshotPayload } from "@/lib/api";
+import { getToken, setToken } from "@/lib/session";
+
+const EDIT_KEY = "geo_edit";
+const readEditUnlocked = () => {
+  try {
+    return typeof window !== "undefined" && localStorage.getItem(EDIT_KEY) === "1";
+  } catch {
+    return false;
+  }
+};
 import type { Role } from "@/lib/types";
 
 type Status = "idle" | "loading" | "live" | "offline" | "error";
@@ -18,9 +27,12 @@ interface EventState {
   saving: boolean;
   lastSaved: number | null;
   saveError: string | null;
+  editUnlocked: boolean;
   init: () => Promise<void>;
   refetch: () => Promise<void>;
   mutate: (action: string, payload?: Record<string, unknown>) => Promise<any>;
+  unlock: (passcode: string) => Promise<boolean>;
+  lock: () => void;
 }
 
 let refetchTimer: ReturnType<typeof setTimeout> | null = null;
@@ -36,6 +48,7 @@ export const useEventStore = create<EventState>((set, get) => ({
   saving: false,
   lastSaved: null,
   saveError: null,
+  editUnlocked: readEditUnlocked(),
 
   init: async () => {
     const token = getToken();
@@ -96,5 +109,30 @@ export const useEventStore = create<EventState>((set, get) => ({
       set({ saving: false, saveError: e instanceof Error ? e.message : String(e) });
       throw e;
     }
+  },
+
+  unlock: async (passcode) => {
+    const res = await unlockEdit(passcode);
+    if (res?.token) {
+      setToken(res.token);
+      try {
+        localStorage.setItem(EDIT_KEY, "1");
+      } catch {
+        /* ignore */
+      }
+      set({ editUnlocked: true });
+      await get().init();
+      return true;
+    }
+    return false;
+  },
+
+  lock: () => {
+    try {
+      localStorage.removeItem(EDIT_KEY);
+    } catch {
+      /* ignore */
+    }
+    set({ editUnlocked: false });
   },
 }));

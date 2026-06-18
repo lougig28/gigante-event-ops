@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
-import { Activity, Map as MapIcon, Users, ListChecks, MoreHorizontal } from "lucide-react";
+import { Activity, Map as MapIcon, Users, ListChecks, MoreHorizontal, Lock, LockOpen } from "lucide-react";
 import { useNow } from "@/hooks/useNow";
 import { useEventData } from "@/hooks/useEventData";
 import { useEventStore } from "@/state/eventStore";
@@ -38,6 +38,20 @@ export function AppShell() {
     void useEventStore.getState().init();
   }, []);
 
+  const editUnlocked = useEventStore((s) => s.editUnlocked);
+  const unlock = useEventStore((s) => s.unlock);
+  const lock = useEventStore((s) => s.lock);
+  const toggleLock = async () => {
+    if (editUnlocked) {
+      lock();
+      return;
+    }
+    const code = window.prompt("Manager passcode to enable editing:");
+    if (code == null) return;
+    const ok = await unlock(code.trim());
+    if (!ok) window.alert("Incorrect passcode. Editing stays locked.");
+  };
+
   const dot = isLive ? "bg-ok" : status === "error" ? "bg-crit" : "bg-warn";
   const stateLabel = isLive ? "live" : status === "error" ? "offline" : "seed";
 
@@ -52,13 +66,26 @@ export function AppShell() {
             </div>
             <p className="truncate text-xs text-muted-foreground">{event.venue}</p>
           </div>
-          <div className="flex shrink-0 flex-col items-end">
-            <HeaderClock />
-            <span className="mt-1 flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
-              <span className="font-semibold text-gold">{ROLE_LABELS[role]}</span>
-              <span className={cn("inline-block h-1.5 w-1.5 rounded-full", dot)} />
-              {stateLabel}
-            </span>
+          <div className="flex shrink-0 items-center gap-2.5">
+            <button
+              onClick={toggleLock}
+              className={cn(
+                "flex h-9 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-semibold transition",
+                editUnlocked ? "border-gold/50 bg-gold/10 text-gold" : "border-border bg-background/60 text-muted-foreground",
+              )}
+              aria-label={editUnlocked ? "Lock editing" : "Unlock editing with passcode"}
+            >
+              {editUnlocked ? <LockOpen className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
+              <span className="hidden sm:inline">{editUnlocked ? "Editing" : "Unlock"}</span>
+            </button>
+            <div className="flex flex-col items-end">
+              <HeaderClock />
+              <span className="mt-1 flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+                <span className="font-semibold text-gold">{ROLE_LABELS[role]}</span>
+                <span className={cn("inline-block h-1.5 w-1.5 rounded-full", dot)} />
+                {stateLabel}
+              </span>
+            </div>
           </div>
         </div>
       </header>

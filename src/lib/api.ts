@@ -37,6 +37,13 @@ export async function fetchSnapshot(token: string): Promise<SnapshotPayload | Sn
   return data as unknown as SnapshotPayload | SnapshotError;
 }
 
+/** Validate a manager passcode server-side; returns an editor token on success. */
+export async function unlockEdit(passcode: string): Promise<{ ok?: boolean; token?: string; error?: string }> {
+  const { data, error } = await (supabase.rpc as any)("edit_unlock", { p_passcode: passcode });
+  if (error) throw error;
+  return (data ?? {}) as { ok?: boolean; token?: string; error?: string };
+}
+
 /** Run an audited, role-gated write through the app_op dispatcher. */
 export async function op(
   token: string,

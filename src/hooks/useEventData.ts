@@ -46,7 +46,11 @@ export function useEventData(): EventData {
   const role = useEventStore((s) => s.role);
   const mutate = useEventStore((s) => s.mutate);
   const lastSync = useEventStore((s) => s.lastSync);
+  const editUnlocked = useEventStore((s) => s.editUnlocked);
   const desktop = useIsDesktop();
+  // Editing on the map is desktop-only UNLESS unlocked with the manager passcode
+  // (then any device can edit).
+  const canEditHere = desktop || editUnlocked;
 
   const isLive = status === "live" && !!snapshot;
 
@@ -56,7 +60,7 @@ export function useEventData(): EventData {
       isLive: false,
       status,
       role: "owner",
-      canEdit: desktop,
+      canEdit: canEditHere,
       metricsLive: false,
       event: {
         name: seed.wpEvent.name,
@@ -155,7 +159,7 @@ export function useEventData(): EventData {
     isLive: true,
     status,
     role: r,
-    canEdit: canEdit(r) && desktop,
+    canEdit: canEdit(r) && canEditHere,
     metricsLive,
     event: {
       name: snapshot.event?.name ?? "Event",
