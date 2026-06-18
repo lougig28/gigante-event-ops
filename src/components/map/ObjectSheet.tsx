@@ -1,7 +1,7 @@
 import { Sheet, Pill } from "@/components/ui/primitives";
 import { kindOf, CATEGORY_LABELS } from "@/lib/catalogIndex";
 import type { FloorMapObject } from "./FloorMap";
-import type { SeedStaff, CheckState } from "@/data/whiteParty";
+import type { SeedStaff } from "@/data/whiteParty";
 import { Phone, Ruler, Lock, MapPin, Check, Flag } from "lucide-react";
 
 const STATUS_TONE: Record<string, "ok" | "warn" | "crit" | "vip" | "muted"> = {
@@ -13,12 +13,8 @@ const STATUS_TONE: Record<string, "ok" | "warn" | "crit" | "vip" | "muted"> = {
 };
 const STATUSES = ["ok", "setup", "attention", "down", "vip"] as const;
 
-const checkTone: Record<CheckState, "ok" | "warn" | "muted" | "pool"> = {
-  checked_in: "ok",
-  scheduled: "warn",
-  on_break: "pool",
-  clocked_out: "muted",
-};
+const fmt = (iso: string) =>
+  new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" });
 
 function ftIn(ft: number): string {
   const totalIn = Math.round(ft * 12);
@@ -173,8 +169,8 @@ export function ObjectSheet({ obj, zoneName, staffInZone, canEdit, onClose, onSt
                     <div className="truncate text-sm font-medium">{s.name}</div>
                     <div className="truncate text-xs text-muted-foreground">{s.position}</div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Pill tone={checkTone[s.check]}>{s.check.replace("_", " ")}</Pill>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {s.callTime && <span className="tabular-nums text-xs text-muted-foreground">{fmt(s.callTime)}</span>}
                     <a
                       href="tel:"
                       className="flex h-8 w-8 items-center justify-center rounded-full border border-border text-muted-foreground"

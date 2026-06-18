@@ -5,7 +5,7 @@ import { RunOfShowRibbon } from "@/components/RunOfShowRibbon";
 import { WeatherWidget } from "@/components/WeatherWidget";
 import { EightySixBoard } from "@/components/EightySixBoard";
 import { useEventStore } from "@/state/eventStore";
-import { Card, Pill, ProgressBar, SectionTitle, SeedBadge } from "@/components/ui/primitives";
+import { Card, Pill, SectionTitle, SeedBadge } from "@/components/ui/primitives";
 import { Wine, Users, ListChecks, Crown, Activity, Clock, AlertTriangle } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -43,7 +43,7 @@ const connTone = (state: string) =>
 
 export function DashboardPage() {
   const now = useNow(15_000);
-  const { runOfShow, metrics, connectors, counts, metricsLive, staff, reservations } = useEventData();
+  const { runOfShow, metrics, connectors, counts, metricsLive, reservations } = useEventData();
   const bookedCovers = reservations.reduce((s: number, r: any) => s + (Number(r.party_size) || 0), 0);
   const { current, next, preEvent } = pickNowNext(runOfShow, now);
   const token = useEventStore((s) => s.token);
@@ -60,12 +60,6 @@ export function DashboardPage() {
 
   const nowMs = now.getTime();
   const alerts: { id: string; tone: "warn" | "crit"; text: string }[] = [];
-  if (!preEvent) {
-    const overdue = staff.filter((s) => s.check === "scheduled" && s.callTime && new Date(s.callTime).getTime() < nowMs);
-    if (overdue.length) alerts.push({ id: "cov", tone: "warn", text: `${overdue.length} staff past call time, not checked in` });
-    if (counts.tasksTotal && counts.tasksDone / counts.tasksTotal < 0.5)
-      alerts.push({ id: "sw", tone: "warn", text: `Side work ${Math.round((counts.tasksDone / counts.tasksTotal) * 100)}% — ${counts.tasksTotal - counts.tasksDone} tasks open` });
-  }
   const peakCue = runOfShow.find((c) => c.phase === "peak");
   if (peakCue) {
     const m = (new Date(peakCue.time).getTime() - nowMs) / 60000;
@@ -163,32 +157,8 @@ export function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-2">
-        <Card className="p-3">
-          <div className="flex items-center gap-1.5 text-muted-foreground">
-            <Users className="h-4 w-4 text-ok" />
-            <span className="text-[11px] font-medium uppercase tracking-wide">Checked in</span>
-          </div>
-          <div className="mt-1 text-2xl font-bold tabular-nums">
-            {counts.staffCheckedIn}
-            <span className="text-base font-medium text-muted-foreground"> / {counts.staffScheduled}</span>
-          </div>
-          <div className="mt-2">
-            <ProgressBar value={counts.staffScheduled ? (counts.staffCheckedIn / counts.staffScheduled) * 100 : 0} tone="ok" />
-          </div>
-        </Card>
-        <Card className="p-3">
-          <div className="flex items-center gap-1.5 text-muted-foreground">
-            <ListChecks className="h-4 w-4 text-gold" />
-            <span className="text-[11px] font-medium uppercase tracking-wide">Side work</span>
-          </div>
-          <div className="mt-1 text-2xl font-bold tabular-nums">
-            {counts.tasksDone}
-            <span className="text-base font-medium text-muted-foreground"> / {counts.tasksTotal}</span>
-          </div>
-          <div className="mt-2">
-            <ProgressBar value={counts.tasksTotal ? (counts.tasksDone / counts.tasksTotal) * 100 : 0} tone="gold" />
-          </div>
-        </Card>
+        <Stat icon={Users} label="Team" value={num(counts.staffScheduled)} sub="on the schedule" tone="gold" />
+        <Stat icon={ListChecks} label="Reminders" value={num(counts.tasksTotal)} sub="side-work standards" tone="gold" />
       </div>
 
       {token && (

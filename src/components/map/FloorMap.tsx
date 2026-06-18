@@ -48,7 +48,7 @@ interface Props {
   onDelete: (id: string) => void;
   onOpenDetails: (obj: FloorMapObject) => void;
   onCreate: (payload: Record<string, unknown>) => void;
-  staffPins?: Array<{ id: string; x: number; y: number; total: number; checkedIn: number }>;
+  staffPins?: Array<{ id: string; x: number; y: number; total: number }>;
   onStaffPinTap?: (zoneId: string) => void;
 }
 
@@ -240,7 +240,7 @@ export function FloorMap({
     <div
       ref={wrapRef}
       className="relative h-full w-full touch-none overflow-hidden"
-      style={{ background: "radial-gradient(120% 90% at 50% 32%, #16161d 0%, #0a0a0c 72%)" }}
+      style={{ background: "radial-gradient(120% 90% at 50% 30%, #efeae0 0%, #ddd7ca 78%)" }}
     >
       {size.w > 0 && (
         <Stage
@@ -366,12 +366,11 @@ export function FloorMap({
 
             {/* Staff position pins (live check-in) */}
             {staffPins?.map((p) => {
-              const color = p.checkedIn >= p.total ? "#34D399" : p.checkedIn > 0 ? "#FBBF24" : "#8A8A93";
               return (
                 <Group key={p.id} x={p.x} y={p.y} onClick={() => onStaffPinTap?.(p.id)} onTap={() => onStaffPinTap?.(p.id)}>
                   <Circle radius={19 * k} fill="transparent" />
-                  <Circle radius={15 * k} fill={color} stroke="#0b0b0d" strokeWidth={2 * k} shadowColor="#000" shadowBlur={6 * k} shadowOpacity={0.4} shadowOffsetY={3 * k} listening={false} />
-                  <Text text={`${p.checkedIn}/${p.total}`} fontSize={10.5 * k} fontStyle="bold" fill="#0b0b0d" align="center" width={80 * k} offsetX={40 * k} offsetY={5.5 * k} listening={false} />
+                  <Circle radius={15 * k} fill="#c9a24b" stroke="#ffffff" strokeWidth={2 * k} shadowColor="#000" shadowBlur={6 * k} shadowOpacity={0.3} shadowOffsetY={3 * k} listening={false} />
+                  <Text text={`${p.total}`} fontSize={13 * k} fontStyle="bold" fill="#241c08" align="center" width={80 * k} offsetX={40 * k} offsetY={6.5 * k} listening={false} />
                 </Group>
               );
             })}
@@ -432,7 +431,7 @@ export function FloorMap({
       {canEdit && (
         <button
           onClick={() => setPaletteOpen(true)}
-          className="absolute bottom-4 right-4 z-10 flex h-14 w-14 items-center justify-center rounded-full bg-gold text-background shadow-lg shadow-black/40 active:scale-95"
+          className="absolute bottom-4 right-4 z-10 flex h-14 w-14 items-center justify-center rounded-full bg-gold text-white shadow-lg shadow-black/25 active:scale-95"
           aria-label="Add object"
         >
           <Plus className="h-6 w-6" strokeWidth={2.5} />

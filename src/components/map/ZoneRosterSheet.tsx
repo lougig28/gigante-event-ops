@@ -1,13 +1,6 @@
-import { Sheet, Pill } from "@/components/ui/primitives";
-import type { SeedStaff, CheckState } from "@/data/whiteParty";
+import { Sheet } from "@/components/ui/primitives";
+import type { SeedStaff } from "@/data/whiteParty";
 import { Phone } from "lucide-react";
-
-const tone: Record<CheckState, "ok" | "warn" | "muted" | "pool"> = {
-  checked_in: "ok",
-  scheduled: "warn",
-  on_break: "pool",
-  clocked_out: "muted",
-};
 
 const fmt = (iso: string) =>
   new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" });
@@ -23,9 +16,8 @@ export function ZoneRosterSheet({
   zoneName: string | null;
   staff: SeedStaff[];
 }) {
-  const inCount = staff.filter((s) => s.check === "checked_in").length;
   return (
-    <Sheet open={open} onClose={onClose} title={zoneName ?? "Zone"} subtitle={`${inCount}/${staff.length} checked in`}>
+    <Sheet open={open} onClose={onClose} title={zoneName ?? "Zone"} subtitle={`${staff.length} on roster`}>
       {staff.length === 0 ? (
         <p className="text-sm text-muted-foreground">No staff assigned to this area.</p>
       ) : (
@@ -36,10 +28,10 @@ export function ZoneRosterSheet({
                 <div className="truncate text-sm font-medium">{s.name}</div>
                 <div className="truncate text-xs text-muted-foreground">{s.position}</div>
               </div>
-              <div className="flex shrink-0 items-center gap-2">
+              <div className="flex shrink-0 items-center gap-3">
                 <div className="text-right">
-                  <div className="tabular-nums text-xs font-medium">{s.callTime ? fmt(s.callTime) : "—"}</div>
-                  <Pill tone={tone[s.check]}>{s.check.replace("_", " ")}</Pill>
+                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground">call</div>
+                  <div className="tabular-nums text-sm font-semibold">{s.callTime ? fmt(s.callTime) : "—"}</div>
                 </div>
                 <a
                   href="tel:"

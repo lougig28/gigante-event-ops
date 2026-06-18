@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { useEventData } from "@/hooks/useEventData";
 import { FloorMap, type FloorMapObject, type FloorMapZone } from "@/components/map/FloorMap";
 import { ObjectSheet } from "@/components/map/ObjectSheet";
@@ -6,10 +6,13 @@ import { LayerSheet } from "@/components/map/LayerSheet";
 import { ZoneRosterSheet } from "@/components/map/ZoneRosterSheet";
 import { LAYERS, layerOf, defaultLayers } from "@/lib/layers";
 import { Card, Pill } from "@/components/ui/primitives";
-import { Lock, Ruler, Maximize2, Layers as LayersIcon } from "lucide-react";
+import { Lock, Ruler, Maximize2, Layers as LayersIcon, Box, SquarePen } from "lucide-react";
+
+const MapShow3D = lazy(() => import("@/components/map/MapShow3D").then((m) => ({ default: m.MapShow3D })));
 
 export function MapPage() {
   const { floorPlan, objects, zones, staff, canEdit, isLive, mutate, role } = useEventData();
+  const [mode, setMode] = useState<"edit" | "show">("edit");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [layerOpen, setLayerOpen] = useState(false);
@@ -62,16 +65,15 @@ export function MapPage() {
   const staffPins = visible.has("staff")
     ? Object.values(
         staff.reduce(
-          (acc: Record<string, { id: string; x: number; y: number; total: number; checkedIn: number }>, s) => {
+          (acc: Record<string, { id: string; x: number; y: number; total: number }>, s) => {
             const z = zoneByName[s.zone];
             if (!z || !z.points?.length) return acc;
             if (!acc[z.id]) {
               const cx = z.points.reduce((a, p) => a + p.x, 0) / z.points.length;
               const cy = z.points.reduce((a, p) => a + p.y, 0) / z.points.length;
-              acc[z.id] = { id: z.id, x: cx, y: cy, total: 0, checkedIn: 0 };
+              acc[z.id] = { id: z.id, x: cx, y: cy, total: 0 };
             }
             acc[z.id].total++;
-            if (s.check === "checked_in") acc[z.id].checkedIn++;
             return acc;
           },
           {},
@@ -105,25 +107,60 @@ export function MapPage() {
         <LayersIcon className="h-3.5 w-3.5 text-gold" /> Layers
       </button>
 
-      <FloorMap
-        floorPlan={floorPlan}
-        objects={shownObjects}
-        zones={zones as FloorMapZone[]}
-        canEdit={canEdit}
-        selectedId={selectedId}
-        onSelect={setSelectedId}
-        onMove={(id, x, y) => void mutate("obj.upsert", { id, x, y })}
-        onUpdate={(id, patch) => void mutate("obj.upsert", { id, ...patch })}
-        onDelete={(id) => {
-          void mutate("obj.delete", { id });
-          setSelectedId(null);
-          if (detailId === id) setDetailId(null);
-        }}
-        onOpenDetails={(o) => setDetailId(o.id)}
-        onCreate={(p) => void mutate("obj.upsert", p)}
-        staffPins={staffPins}
-        onStaffPinTap={(zid) => setRosterZoneId(zid)}
-      />
+      {/* Edit (2D, to-scale) ⇄ 3D Show toggle */}
+      <div className="absolute left-1/2 top-3 z-20 flex -translate-x-1/2 overflow-hidden rounded-lg border border-border bg-background/85 text-xs font-semibold backdrop-blur">
+        <button
+          onClick={() => setMode("edit")}
+          className={`flex items-center gap-1.5 px-3 py-1.5 ${mode === "edit" ? "bg-gold text-white" : "text-muted-foreground"}`}
+        >
+          <SquarePen className="h-3.5 w-3.5" /> Edit
+        </button>
+        <button
+          onClick={() => setMode("show")}
+          className={`flex items-center gap-1.5 px-3 py-1.5 ${mode === "show" ? "bg-gold text-white" : "text-muted-foreground"}`}
+        >
+          <Box className="h-3.5 w-3.5" /> 3D
+        </button>
+      </div>
+
+      {mode === "edit" ? (
+        <FloorMap
+          floorPlan={floorPlan}
+          objects={shownObjects}
+          zones={zones as FloorMapZone[]}
+          canEdit={canEdit}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+          onMove={(id, x, y) => void mutate("obj.upsert", { id, x, y })}
+          onUpdate={(id, patch) => void mutate("obj.upsert", { id, ...patch })}
+          onDelete={(id) => {
+            void mutate("obj.delete", { id });
+            setSelectedId(null);
+            if (detailId === id) setDetailId(null);
+          }}
+          onOpenDetails={(o) => setDetailId(o.id)}
+          onCreate={(p) => void mutate("obj.upsert", p)}
+          staffPins={staffPins}
+          onStaffPinTap={(zid) => setRosterZoneId(zid)}
+        />
+      ) : (
+        <Suspense
+          fallback={
+            <div className="absolute inset-0 grid place-items-center bg-[#f1ede4] text-sm text-muted-foreground">
+              Rendering 3D…
+            </div>
+          }
+        >
+          <MapShow3D
+            floorPlan={floorPlan}
+            objects={shownObjects}
+            zones={zones as FloorMapZone[]}
+            staffPins={staffPins}
+            onObjectTap={(id) => setDetailId(id)}
+            onZoneTap={(zid) => setRosterZoneId(zid)}
+          />
+        </Suspense>
+      )}
 
       <ObjectSheet
         obj={detailObj}

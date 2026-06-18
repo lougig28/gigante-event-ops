@@ -1,4 +1,5 @@
 import { useEventStore } from "@/state/eventStore";
+import { useIsDesktop } from "@/hooks/useIsDesktop";
 import { canEdit, type Role } from "@/lib/types";
 import * as seed from "@/data/whiteParty";
 import type { SeedStaff, SeedChecklist, RosCue, CheckState } from "@/data/whiteParty";
@@ -45,6 +46,7 @@ export function useEventData(): EventData {
   const role = useEventStore((s) => s.role);
   const mutate = useEventStore((s) => s.mutate);
   const lastSync = useEventStore((s) => s.lastSync);
+  const desktop = useIsDesktop();
 
   const isLive = status === "live" && !!snapshot;
 
@@ -54,7 +56,7 @@ export function useEventData(): EventData {
       isLive: false,
       status,
       role: "owner",
-      canEdit: true,
+      canEdit: desktop,
       metricsLive: false,
       event: {
         name: seed.wpEvent.name,
@@ -153,7 +155,7 @@ export function useEventData(): EventData {
     isLive: true,
     status,
     role: r,
-    canEdit: canEdit(r),
+    canEdit: canEdit(r) && desktop,
     metricsLive,
     event: {
       name: snapshot.event?.name ?? "Event",

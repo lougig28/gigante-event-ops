@@ -12,47 +12,47 @@
 :root {
   --radius: 0.7rem;
 
-  --background: oklch(0.985 0 0);
-  --foreground: oklch(0.16 0 0);
+  --background: oklch(0.976 0.007 88);
+  --foreground: oklch(0.19 0.012 70);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.16 0 0);
+  --card-foreground: oklch(0.19 0.012 70);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.16 0 0);
+  --popover-foreground: oklch(0.19 0.012 70);
 
-  /* Champagne gold = brand primary */
-  --primary: oklch(0.72 0.085 84);
-  --primary-foreground: oklch(0.18 0.01 80);
+  /* Champagne gold = brand primary (deepened for legibility on light) */
+  --primary: oklch(0.66 0.1 80);
+  --primary-foreground: oklch(0.21 0.02 75);
 
-  --secondary: oklch(0.96 0 0);
-  --secondary-foreground: oklch(0.2 0 0);
-  --muted: oklch(0.965 0 0);
-  --muted-foreground: oklch(0.52 0 0);
-  --accent: oklch(0.95 0.02 85);
-  --accent-foreground: oklch(0.2 0.01 80);
+  --secondary: oklch(0.955 0.008 88);
+  --secondary-foreground: oklch(0.26 0.01 75);
+  --muted: oklch(0.955 0.008 88);
+  --muted-foreground: oklch(0.48 0.012 78);
+  --accent: oklch(0.95 0.025 86);
+  --accent-foreground: oklch(0.26 0.01 75);
 
-  --destructive: oklch(0.58 0.22 27);
-  --destructive-foreground: oklch(0.98 0 0);
+  --destructive: oklch(0.56 0.21 27);
+  --destructive-foreground: oklch(0.99 0 0);
 
-  --border: oklch(0.9 0 0);
-  --input: oklch(0.9 0 0);
-  --ring: oklch(0.72 0.085 84);
+  --border: oklch(0.89 0.013 85);
+  --input: oklch(0.89 0.013 85);
+  --ring: oklch(0.68 0.1 80);
 
-  /* Brand + ops semantic tokens */
-  --gold: oklch(0.78 0.1 85);
-  --gold-deep: oklch(0.62 0.1 78);
-  --champagne: oklch(0.92 0.04 88);
-  --pool: oklch(0.7 0.12 220);
-  --pool-deep: oklch(0.55 0.13 230);
-  --vip: oklch(0.7 0.12 70);
-  --ok: oklch(0.7 0.16 150);
-  --warn: oklch(0.8 0.15 80);
-  --crit: oklch(0.62 0.22 27);
+  /* Brand + ops semantic tokens (tuned for legibility on light) */
+  --gold: oklch(0.66 0.11 80);
+  --gold-deep: oklch(0.55 0.1 76);
+  --champagne: oklch(0.9 0.05 88);
+  --pool: oklch(0.58 0.13 232);
+  --pool-deep: oklch(0.5 0.13 235);
+  --vip: oklch(0.6 0.11 66);
+  --ok: oklch(0.6 0.15 150);
+  --warn: oklch(0.62 0.14 68);
+  --crit: oklch(0.56 0.21 27);
 
-  --chart-1: oklch(0.72 0.085 84);
-  --chart-2: oklch(0.7 0.12 220);
-  --chart-3: oklch(0.7 0.16 150);
-  --chart-4: oklch(0.8 0.15 80);
-  --chart-5: oklch(0.62 0.22 27);
+  --chart-1: oklch(0.66 0.11 80);
+  --chart-2: oklch(0.58 0.13 232);
+  --chart-3: oklch(0.6 0.15 150);
+  --chart-4: oklch(0.62 0.14 68);
+  --chart-5: oklch(0.56 0.21 27);
 }
 
 .dark {
