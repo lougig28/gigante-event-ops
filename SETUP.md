@@ -40,9 +40,16 @@ written brief + the real assets as the source of truth and reconstructed the
 | **Sling** | stubbed | `SLING_API_TOKEN`, `SLING_ORG_ID` | **No Sling integration exists anywhere** in the Gigante codebase — confirmed. Roster + call times are seeded from the Bar & VIP Briefing. Schedule is the source of truth in Sling; merge pattern (`mergeCrew`) is ready. |
 | **Tripleseat** | off | `TRIPLESEAT_CLIENT_ID/SECRET/LOCATION_ID` | Optional for this event. |
 
-Connector Edge Functions are the next build step (#9). They'll poll 30–60s →
-write DB → Realtime push, and flip `connector_status` to `live`. Set secrets via
-`supabase secrets set …` (Vault) — connectors run **server-side only**.
+**Connector sync is deployed + scheduled.** The `connector-sync` Edge Function
+runs every 60s (pg_cron + pg_net), recomputes live rollups, and stamps
+`connector_status`. It already contains the real **Toast** (sales) + **SevenRooms**
+(reservations/guests) sync code, gated on secrets. **To go live:** set
+`TOAST_CLIENT_ID/SECRET` and `SEVENROOMS_CLIENT_ID/SECRET/VENUE_ID` as Edge
+Function secrets (Supabase dashboard → Edge Functions → Secrets, or
+`supabase secrets set`) — the next cron tick flips them to `live`. Optionally set
+`SYNC_KEY` to require an `x-sync-key` header. Sling stays stubbed (no API); live
+staff clock-in matching also needs `toast_employee_id` populated (the Sling↔Toast
+employee mapping). Connectors run **server-side only** (service role).
 
 ## Other open items you can fill in
 
