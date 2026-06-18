@@ -98,7 +98,14 @@ export function DashboardPage() {
                 <Clock className="h-4 w-4 text-muted-foreground" />
                 <span className="tabular-nums font-medium text-foreground">{fmt(next.time)}</span>
                 <span className="text-muted-foreground">· Next:</span>
-                <span className="font-medium">{next.title}</span>
+                <span className="truncate font-medium">{next.title}</span>
+                <span className="ml-auto shrink-0 tabular-nums text-xs text-muted-foreground">
+                  in{" "}
+                  {(() => {
+                    const m = Math.max(0, Math.round((new Date(next.time).getTime() - now.getTime()) / 60000));
+                    return m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`;
+                  })()}
+                </span>
               </div>
             )}
           </div>
