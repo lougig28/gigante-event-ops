@@ -3,6 +3,7 @@ import { Card, Pill, SectionTitle } from "@/components/ui/primitives";
 import { useEventData } from "@/hooks/useEventData";
 import { useEventStore } from "@/state/eventStore";
 import { ShareSheet } from "@/components/ShareSheet";
+import { VipSheet } from "@/components/VipSheet";
 import { ROLE_LABELS } from "@/lib/types";
 import { Share2, Shield, Ruler, Wine, Crown, Settings, ChevronRight } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -31,9 +32,10 @@ function Row({
 }
 
 export function MorePage() {
-  const { event, role, isLive, metrics } = useEventData();
+  const { event, role, isLive, metrics, vipTables, canEdit, mutate } = useEventData();
   const token = useEventStore((s) => s.token);
   const [shareOpen, setShareOpen] = useState(false);
+  const [vipOpen, setVipOpen] = useState(false);
   const canManage = role === "owner" || role === "manager";
 
   return (
@@ -64,7 +66,12 @@ export function MorePage() {
           )}
           <Row icon={Ruler} label="Floor plan calibration" hint="Locked · 0.028 ft/unit · 336 × 184 ft" />
           <Row icon={Wine} label="Bars & inventory" hint="4 poolside stations + indoor" />
-          <Row icon={Crown} label="VIP tables" hint={metrics.vipSpend != null ? `$${metrics.vipSpend.toLocaleString()} tracked` : "Minimums, hosts, spend"} />
+          <Row
+            icon={Crown}
+            label="VIP tables"
+            hint={metrics.vipSpend != null ? `$${metrics.vipSpend.toLocaleString()} tracked` : "Minimums, hosts, spend"}
+            onClick={() => setVipOpen(true)}
+          />
           <Row icon={Shield} label="Roles & access" hint="owner / manager / captain / bar_lead / staff / security" />
           <Row icon={Settings} label="Event settings" hint="Capacity, timeline, connectors" />
         </Card>
@@ -73,6 +80,7 @@ export function MorePage() {
       <p className="px-1 text-center text-xs text-muted-foreground">Gigante Event Ops · multi-venue platform · v0.1</p>
 
       {token && <ShareSheet open={shareOpen} onClose={() => setShareOpen(false)} token={token} />}
+      <VipSheet open={vipOpen} onClose={() => setVipOpen(false)} tables={vipTables} canEdit={canEdit} mutate={mutate} />
     </div>
   );
 }
