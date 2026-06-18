@@ -43,7 +43,8 @@ const connTone = (state: string) =>
 
 export function DashboardPage() {
   const now = useNow(15_000);
-  const { runOfShow, metrics, connectors, counts, metricsLive, staff } = useEventData();
+  const { runOfShow, metrics, connectors, counts, metricsLive, staff, reservations } = useEventData();
+  const bookedCovers = reservations.reduce((s: number, r: any) => s + (Number(r.party_size) || 0), 0);
   const { current, next, preEvent } = pickNowNext(runOfShow, now);
   const token = useEventStore((s) => s.token);
 
@@ -154,7 +155,7 @@ export function DashboardPage() {
             icon={Users}
             label="Guests in"
             value={num(metrics.guestsIn)}
-            sub={metrics.capacity ? `of ${metrics.capacity} cap` : "capacity —"}
+            sub={bookedCovers ? `of ${bookedCovers} booked` : metrics.capacity ? `of ${metrics.capacity} cap` : "capacity —"}
             tone="pool"
           />
           <Stat icon={Crown} label="VIP spend" value={money(metrics.vipSpend)} sub="across VIP tables" tone="vip" />
