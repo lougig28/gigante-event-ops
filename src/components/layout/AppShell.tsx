@@ -7,6 +7,18 @@ import { useEventStore } from "@/state/eventStore";
 import { ROLE_LABELS } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
+/** Isolated so the per-second tick doesn't re-render the rest of the shell
+ *  (which would reset the Konva map's pan/zoom mid-interaction). */
+function HeaderClock() {
+  const now = useNow();
+  const time = now.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "America/New_York",
+  });
+  return <span className="tabular-nums text-sm font-semibold leading-none">{time}</span>;
+}
+
 const tabs = [
   { to: "/", label: "Live", icon: Activity, end: true },
   { to: "/map", label: "Map", icon: MapIcon, end: false },
@@ -16,18 +28,12 @@ const tabs = [
 ];
 
 export function AppShell() {
-  const now = useNow();
   const { event, role, isLive, status } = useEventData();
 
   useEffect(() => {
     void useEventStore.getState().init();
   }, []);
 
-  const time = now.toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    timeZone: "America/New_York",
-  });
   const dot = isLive ? "bg-ok" : status === "error" ? "bg-crit" : "bg-warn";
   const stateLabel = isLive ? "live" : status === "error" ? "offline" : "seed";
 
@@ -43,7 +49,7 @@ export function AppShell() {
             <p className="truncate text-xs text-muted-foreground">{event.venue}</p>
           </div>
           <div className="flex shrink-0 flex-col items-end">
-            <span className="tabular-nums text-sm font-semibold leading-none">{time}</span>
+            <HeaderClock />
             <span className="mt-1 flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
               <span className="font-semibold text-gold">{ROLE_LABELS[role]}</span>
               <span className={cn("inline-block h-1.5 w-1.5 rounded-full", dot)} />
