@@ -15,6 +15,7 @@ export const LAYERS: LayerDef[] = [
   { id: "structure", label: "Entry / Door" },
   { id: "decor", label: "Decor" },
   { id: "boh", label: "BOH" },
+  { id: "staff", label: "Staff" },
 ];
 
 const LAYER_IDS = LAYERS.map((l) => l.id);
@@ -44,11 +45,11 @@ export function layerOf(o: { category: string; status: string }): string {
 export function defaultLayers(role: Role): Set<string> {
   switch (role) {
     case "bar_lead":
-      return new Set(["bars", "vip", "structure"]);
+      return new Set(["bars", "vip", "structure", "staff"]);
     case "security":
-      return new Set(["structure", "pool"]);
+      return new Set(["structure", "pool", "staff"]);
     case "captain":
-      return new Set(["bars", "vip", "seating", "stage", "structure"]);
+      return new Set(["bars", "vip", "seating", "stage", "structure", "staff"]);
     default:
       return new Set(LAYER_IDS); // owner / manager / staff / readonly see all
   }

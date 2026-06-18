@@ -51,6 +51,32 @@ export function MapPage() {
     layerCounts[id] = (layerCounts[id] ?? 0) + 1;
   });
   const shownObjects = objs.filter((o) => visible.has(layerOf(o)));
+
+  layerCounts.staff = staff.length;
+  const zoneByName: Record<string, FloorMapZone> = {};
+  (zones as FloorMapZone[]).forEach((z) => {
+    zoneByName[z.name] = z;
+  });
+  const staffPins = visible.has("staff")
+    ? Object.values(
+        staff.reduce(
+          (acc: Record<string, { id: string; x: number; y: number; total: number; checkedIn: number }>, s) => {
+            const z = zoneByName[s.zone];
+            if (!z || !z.points?.length) return acc;
+            if (!acc[z.id]) {
+              const cx = z.points.reduce((a, p) => a + p.x, 0) / z.points.length;
+              const cy = z.points.reduce((a, p) => a + p.y, 0) / z.points.length;
+              acc[z.id] = { id: z.id, x: cx, y: cy, total: 0, checkedIn: 0 };
+            }
+            acc[z.id].total++;
+            if (s.check === "checked_in") acc[z.id].checkedIn++;
+            return acc;
+          },
+          {},
+        ),
+      )
+    : [];
+
   const detailObj = objs.find((o) => o.id === detailId) ?? null;
   const detailZone = detailObj ? zones.find((z) => z.id === detailObj.zone_id)?.name ?? null : null;
   const staffInZone = detailZone ? staff.filter((s) => s.zone === detailZone) : [];
@@ -89,6 +115,7 @@ export function MapPage() {
         }}
         onOpenDetails={(o) => setDetailId(o.id)}
         onCreate={(p) => void mutate("obj.upsert", p)}
+        staffPins={staffPins}
       />
 
       <ObjectSheet

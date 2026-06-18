@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Konva from "konva";
-import { Stage, Layer, Image as KonvaImage, Rect, Line, Text, Group, Transformer } from "react-konva";
+import { Stage, Layer, Image as KonvaImage, Rect, Circle, Line, Text, Group, Transformer } from "react-konva";
 import { Plus, Minus, Maximize2, RotateCw, Lock, Unlock, Trash2, Info, Download, Copy } from "lucide-react";
 import { useImage } from "@/hooks/useImage";
 import { kindOf, tokenHex } from "@/lib/catalogIndex";
@@ -48,6 +48,7 @@ interface Props {
   onDelete: (id: string) => void;
   onOpenDetails: (obj: FloorMapObject) => void;
   onCreate: (payload: Record<string, unknown>) => void;
+  staffPins?: Array<{ id: string; x: number; y: number; total: number; checkedIn: number }>;
 }
 
 function ftIn(ft: number): string {
@@ -69,6 +70,7 @@ export function FloorMap({
   onDelete,
   onOpenDetails,
   onCreate,
+  staffPins,
 }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
@@ -352,6 +354,17 @@ export function FloorMap({
                     rotation={o.rotation || 0}
                     showLabel={pw * view.scale > 46}
                   />
+                </Group>
+              );
+            })}
+
+            {/* Staff position pins (live check-in) */}
+            {staffPins?.map((p) => {
+              const color = p.checkedIn >= p.total ? "#34D399" : p.checkedIn > 0 ? "#FBBF24" : "#8A8A93";
+              return (
+                <Group key={p.id} x={p.x} y={p.y} listening={false}>
+                  <Circle radius={15 * k} fill={color} stroke="#0b0b0d" strokeWidth={2 * k} shadowColor="#000" shadowBlur={6 * k} shadowOpacity={0.4} shadowOffsetY={3 * k} />
+                  <Text text={`${p.checkedIn}/${p.total}`} fontSize={10.5 * k} fontStyle="bold" fill="#0b0b0d" align="center" width={80 * k} offsetX={40 * k} offsetY={5.5 * k} />
                 </Group>
               );
             })}
