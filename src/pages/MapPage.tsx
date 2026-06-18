@@ -185,16 +185,17 @@ export function MapPage() {
             if (id) setSelectedId(null);
           }}
           onZoneChange={(id, points) => void mutate("zone.upsert", { id, points })}
+          onZoneUpdate={(id, patch) => void mutate("zone.upsert", { id, ...patch })}
           onZoneDelete={(id) => {
             void mutate("zone.delete", { id });
             setSelectedZoneId(null);
           }}
-          onAddZone={() => {
+          onAddZone={async () => {
             const u = floorPlan.ft_per_unit || 0.028;
             const cx = (floorPlan.base_width || 1000) / 2;
             const cy = (floorPlan.base_height || 1000) / 2;
             const half = 10 / u; // 20 ft square
-            void mutate("zone.upsert", {
+            const res = await mutate("zone.upsert", {
               name: "New Area",
               color: "vip",
               points: [
@@ -204,6 +205,10 @@ export function MapPage() {
                 { x: cx - half, y: cy + half },
               ],
             });
+            if (res?.id) {
+              setSelectedId(null);
+              setSelectedZoneId(res.id);
+            }
           }}
         />
       ) : (

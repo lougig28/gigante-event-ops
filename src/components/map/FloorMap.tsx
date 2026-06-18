@@ -53,9 +53,12 @@ interface Props {
   selectedZoneId?: string | null;
   onSelectZone?: (id: string | null) => void;
   onZoneChange?: (id: string, points: { x: number; y: number }[]) => void;
+  onZoneUpdate?: (id: string, patch: { name?: string; color?: string }) => void;
   onZoneDelete?: (id: string) => void;
   onAddZone?: () => void;
 }
+
+const ZONE_COLORS = ["vip", "gold", "pool", "ok", "warn", "crit", "muted"];
 
 function zoneRect(z: FloorMapZone) {
   const xs = z.points.map((p) => p.x);
@@ -95,6 +98,7 @@ export function FloorMap({
   selectedZoneId,
   onSelectZone,
   onZoneChange,
+  onZoneUpdate,
   onZoneDelete,
   onAddZone,
 }: Props) {
@@ -562,22 +566,45 @@ export function FloorMap({
         </div>
       )}
 
-      {/* Selected AREA readout + toolbar */}
+      {/* Selected AREA toolbar — rename, recolor, resize (handles), delete */}
       {selectedZone && !selected && selectedZoneSize && (
-        <div className="absolute inset-x-3 bottom-20 z-10 mx-auto flex max-w-sm items-center gap-2 rounded-xl border border-border bg-background/95 px-3 py-2 shadow-lg backdrop-blur">
-          <Frame className="h-4 w-4 shrink-0 text-gold" />
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-semibold">
-              {selectedZone.name} <span className="font-normal text-muted-foreground">· area</span>
-            </div>
-            <div className="tabular-nums text-xs text-muted-foreground">
-              {ftIn(selectedZoneSize.rw * ftPerUnit)} × {ftIn(selectedZoneSize.rh * ftPerUnit)} · drag to move · handles to resize
-            </div>
+        <div className="absolute inset-x-3 bottom-20 z-10 mx-auto flex max-w-md flex-col gap-2 rounded-xl border border-border bg-background/95 px-3 py-2.5 shadow-lg backdrop-blur">
+          <div className="flex items-center gap-2">
+            <Frame className="h-4 w-4 shrink-0 text-gold" />
+            <input
+              key={selectedZone.id}
+              defaultValue={selectedZone.name}
+              disabled={!canEdit}
+              onBlur={(e) => {
+                const v = e.target.value.trim();
+                if (v && v !== selectedZone.name) onZoneUpdate?.(selectedZone.id, { name: v });
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+              }}
+              className="min-w-0 flex-1 rounded-md border border-border bg-card px-2 py-1 text-sm font-semibold outline-none focus:border-gold"
+            />
+            <span className="shrink-0 tabular-nums text-xs text-muted-foreground">
+              {ftIn(selectedZoneSize.rw * ftPerUnit)} × {ftIn(selectedZoneSize.rh * ftPerUnit)}
+            </span>
+            {canEdit && (
+              <button onClick={() => onZoneDelete?.(selectedZone.id)} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border text-crit" aria-label="Delete area">
+                <Trash2 className="h-4 w-4" />
+              </button>
+            )}
           </div>
           {canEdit && (
-            <button onClick={() => onZoneDelete?.(selectedZone.id)} className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-crit" aria-label="Delete area">
-              <Trash2 className="h-4 w-4" />
-            </button>
+            <div className="flex items-center gap-1.5 pl-6">
+              {ZONE_COLORS.map((c) => (
+                <button
+                  key={c}
+                  onClick={() => onZoneUpdate?.(selectedZone.id, { color: c })}
+                  className={`h-6 w-6 rounded-full border-2 transition ${selectedZone.color === c ? "border-foreground" : "border-transparent"}`}
+                  style={{ background: tokenHex(c) }}
+                  aria-label={`Color ${c}`}
+                />
+              ))}
+            </div>
           )}
         </div>
       )}
