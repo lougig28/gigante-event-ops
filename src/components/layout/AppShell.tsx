@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { NavLink, Outlet, useLocation, Navigate } from "react-router-dom";
 import { Activity, Map as MapIcon, Users, ListChecks, MoreHorizontal, Lock, LockOpen } from "lucide-react";
 import { useNow } from "@/hooks/useNow";
 import { useEventData } from "@/hooks/useEventData";
@@ -52,14 +52,19 @@ export function AppShell() {
     if (!ok) window.alert("Incorrect passcode.");
   };
 
-  // Management view = passcode unlocked OR signed in with an editor-role token.
-  // Locked guests see only Live + More; Map / Staff / Side Work need the passcode.
+  // Management view = passcode unlocked OR an editor-role token. Line staff (and
+  // viewers) get the operational tabs only — Map / Staff / Side Work — never the
+  // Live dashboard or More (admin), which are management-only.
   const managementView = editUnlocked || (isLive && roleCanEdit(role));
-  const visibleTabs = managementView ? tabs : tabs.filter((t) => t.to === "/" || t.to === "/more");
-  const blocked = ["/map", "/staff", "/sidework"].some((p) => pathname.startsWith(p)) && !managementView;
+  const visibleTabs = managementView ? tabs : tabs.filter((t) => ["/map", "/staff", "/sidework"].includes(t.to));
+  const ready = status !== "idle" && status !== "loading";
+  const redirectStaff = ready && !managementView && (pathname === "/" || pathname.startsWith("/more"));
 
   const dot = isLive ? "bg-ok" : status === "error" ? "bg-crit" : "bg-warn";
   const stateLabel = isLive ? "live" : status === "error" ? "offline" : "seed";
+
+  // Staff don't get the dashboard or admin — send them to the operational map.
+  if (redirectStaff) return <Navigate to="/map" replace />;
 
   return (
     <div className={cn("mx-auto flex min-h-[100svh] flex-col bg-background", isMap ? "max-w-md lg:max-w-none" : "max-w-md")}>
@@ -97,25 +102,7 @@ export function AppShell() {
       </header>
 
       <main className="flex-1 overflow-y-auto px-3 pb-28 pt-3">
-        {blocked ? (
-          <div className="flex min-h-[65vh] flex-col items-center justify-center gap-4 px-6 text-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full border border-border bg-muted/60">
-              <Lock className="h-7 w-7 text-muted-foreground" />
-            </div>
-            <div>
-              <div className="text-base font-semibold">Manager access required</div>
-              <p className="mt-1 text-sm text-muted-foreground">Enter the manager passcode to view this section.</p>
-            </div>
-            <button
-              onClick={toggleLock}
-              className="rounded-lg bg-gold px-5 py-2.5 text-sm font-semibold text-white active:scale-95"
-            >
-              Enter passcode
-            </button>
-          </div>
-        ) : (
-          <Outlet />
-        )}
+        <Outlet />
       </main>
 
       <nav className={cn("safe-b fixed inset-x-0 bottom-0 z-20 mx-auto flex items-stretch justify-around border-t border-border/70 bg-background/90 backdrop-blur-md", isMap ? "max-w-md lg:max-w-none" : "max-w-md")}>
