@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { Activity, Map as MapIcon, Users, ListChecks, MoreHorizontal } from "lucide-react";
 import { useNow } from "@/hooks/useNow";
 import { useEventData } from "@/hooks/useEventData";
@@ -29,6 +29,10 @@ const tabs = [
 
 export function AppShell() {
   const { event, role, isLive, status } = useEventData();
+  const { pathname } = useLocation();
+  // The Map is a layout editor — let it use the full desktop width; the
+  // card-based pages stay in the comfortable mobile column.
+  const isMap = pathname.startsWith("/map");
 
   useEffect(() => {
     void useEventStore.getState().init();
@@ -38,7 +42,7 @@ export function AppShell() {
   const stateLabel = isLive ? "live" : status === "error" ? "offline" : "seed";
 
   return (
-    <div className="mx-auto flex min-h-[100svh] max-w-md flex-col bg-background">
+    <div className={cn("mx-auto flex min-h-[100svh] flex-col bg-background", isMap ? "max-w-md lg:max-w-none" : "max-w-md")}>
       <header className="safe-t sticky top-0 z-20 border-b border-border/70 bg-background/80 backdrop-blur-md">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="min-w-0">
@@ -63,7 +67,7 @@ export function AppShell() {
         <Outlet />
       </main>
 
-      <nav className="safe-b fixed inset-x-0 bottom-0 z-20 mx-auto flex max-w-md items-stretch justify-around border-t border-border/70 bg-background/90 backdrop-blur-md">
+      <nav className={cn("safe-b fixed inset-x-0 bottom-0 z-20 mx-auto flex items-stretch justify-around border-t border-border/70 bg-background/90 backdrop-blur-md", isMap ? "max-w-md lg:max-w-none" : "max-w-md")}>
         {tabs.map(({ to, label, icon: Icon, end }) => (
           <NavLink
             key={to}
