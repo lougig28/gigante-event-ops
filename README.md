@@ -1,73 +1,48 @@
-# React + TypeScript + Vite
+# Gigante Event Ops
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Mobile-first staff operations platform for Gigante Hospitality. Event-agnostic and
+multi-venue — the first event is **White Party 2026** (Lake Isle pool).
 
-Currently, two official plugins are available:
+**Live:** https://lougig28.github.io/gigante-event-ops/ · open with a role link, e.g.
+`/?t=wp26-owner-3f9a2c` (see [SETUP.md](SETUP.md)).
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## What it does
 
-## React Compiler
+- **Interactive to-scale floor map** (react-konva) — locked dimensioned base plan,
+  calibrated (0.028040 ft/unit, ±0.56% from CubiCasa dimension lines), pan/pinch/
+  zoom, a full to-scale object library (95 kinds), drag/resize/rotate with a live
+  ft/in readout, and tap-through role-aware detail sheets (the map is the floor's
+  information hub).
+- **Live dashboard** — run-of-show now/next, sales/drinks/guests/VIP, staff
+  check-in, side-work progress, connector status.
+- **Staffing** — roster by zone, call times, live check-in (tap-to-toggle), tap-to-call.
+- **Side work** — opening/running/closing checklists with live completion.
+- **Roles + share links** — 7 roles, scoped, revocable, every edit audited.
+- **Realtime** — every change syncs across all clients within seconds.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Stack
 
-## Expanding the ESLint configuration
+React 19 · Vite · TypeScript · Tailwind v4 · react-konva · Zustand · TanStack Query
+· Supabase (Postgres + RLS + SECURITY DEFINER RPCs + Realtime broadcast). Deployed
+on GitHub Pages (Vercel/Netlify configs included).
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Architecture (short)
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+- All data access is **token-gated via RPCs** — `event_snapshot` (read) and
+  `app_op` (audited write dispatcher). RLS denies direct table access, so the
+  public anon key can't read PII; a per-role share token gates everything.
+- **Realtime** rides a per-event Supabase **broadcast** channel (no table data on
+  the wire) so no-login floor staff stay in sync.
+- The frontend runs **live** with a token and falls back to an offline **seed**
+  (handy when poolside connectivity drops).
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+See [SETUP.md](SETUP.md) for status, connectors, costs, and deploy; `docs/PLAN.md`
+for the phased plan.
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## Develop
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev     # open /?t=wp26-owner-3f9a2c
+npm run build
 ```
