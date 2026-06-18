@@ -64,6 +64,14 @@ export function SideWorkPage() {
                         {item.title}
                       </span>
                       {item.detail && <span className="block text-xs text-muted-foreground">{item.detail}</span>}
+                      {isDone && item.completedBy && (
+                        <span className="block text-[11px] font-medium text-ok">
+                          ✓ {item.completedBy}
+                          {item.completedAt
+                            ? ` · ${new Date(item.completedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" })}`
+                            : ""}
+                        </span>
+                      )}
                     </span>
                   </button>
                 );

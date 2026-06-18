@@ -106,7 +106,14 @@ export function useEventData(): EventData {
       items: snapshot.tasks
         .filter((t: any) => t.checklist_id === c.id)
         .sort((a: any, b: any) => a.sort - b.sort)
-        .map((t: any) => ({ id: t.id, title: t.title, detail: t.detail ?? undefined, done: t.status === "done" })),
+        .map((t: any) => ({
+          id: t.id,
+          title: t.title,
+          detail: t.detail ?? undefined,
+          done: t.status === "done",
+          completedBy: t.completed_by ?? undefined,
+          completedAt: t.completed_at ?? undefined,
+        })),
     }));
 
   const runOfShow: RosCue[] = snapshot.run_of_show.map((r: any) => ({

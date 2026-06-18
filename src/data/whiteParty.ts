@@ -99,6 +99,8 @@ export interface SeedTask {
   title: string;
   detail?: string;
   done: boolean;
+  completedBy?: string;
+  completedAt?: string;
 }
 export interface SeedChecklist {
   id: string;
