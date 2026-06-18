@@ -318,7 +318,10 @@ export function FloorMap({
                   draggable={canEdit && !o.locked}
                   onClick={() => onSelect(o.id)}
                   onTap={() => onSelect(o.id)}
-                  onDragEnd={(e) => onMove(o.id, Math.round(e.target.x()), Math.round(e.target.y()))}
+                  onDragEnd={(e) => {
+                    const g = 0.5 / ftPerUnit; // snap to 6"
+                    onMove(o.id, Math.round(e.target.x() / g) * g, Math.round(e.target.y() / g) * g);
+                  }}
                   onTransform={(e) => {
                     const n = e.target;
                     setLive({ w: o.width_ft * Math.abs(n.scaleX()), h: o.height_ft * Math.abs(n.scaleY()) });

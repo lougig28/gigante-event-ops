@@ -6,15 +6,27 @@ platform (Tulum 7/18 next).
 
 ---
 
-## ⚠️ Read first — the spec file
+## Spec reconciled ✓
 
-The brief pointed to `White Party App — Build Spec for Claude Code.md`, but that
-file is **not on disk anywhere** (searched by name, by content tokens — §2A,
-ft-per-pixel, AllSeated/Prismm — and every plausible folder). Per your standing
-instruction ("never let a question stop you… make the best call"), I treated your
-written brief + the real assets as the source of truth and reconstructed the
-§-structure from them. **If you have a richer spec, drop it in and I'll reconcile
-(ratchet-forward — nothing already built gets simplified away).**
+The real spec (`White Party App — Build Spec for Claude Code.md`) + the two
+artifacts (`interactive_floorplan_editor.html`, `white-party-spatial-twin.html`)
+landed and were reconciled — **built forward, nothing regressed.** Added since:
+- **Realistic 2.5D objects** — tables with chairs, wood bars w/ bottle-step,
+  parquet dance floor, water pool, cabanas/daybeds (replaces flat boxes; almost-3D).
+- **Rich layout** per §6: Main Bar 24ft/12-section + Secondary 16ft, 6 VIP rounds,
+  hi-tops, stage, cabanas/daybeds/umbrellas, full door/entry plan — to scale.
+- **Run-of-show** reseeded to the real show (ballerina/stilts/sax/CO₂/dinner 5:30);
+  **run-of-show ribbon** on the dashboard.
+- **86 board** (out-of-stock/cut-off, audited, live) — from the spatial twin.
+- **Editor depth**: PNG export, base-opacity ghosting, duplicate, snap-to-6", fit.
+- **Staffing** reseeded to §6 call times + named team (Ardit/Ivana/Ismael/John G).
+- Playfair serif headers, subtler zones — "quiet luxury."
+
+Backlog (still building forward): toggleable **layers** + role-scoped layer views,
+**staff pins** on the map, align-guides + clearance/egress warnings, layout
+versioning/clone, phase-aware sheet content. The locked base is the dimensioned
+**SVG** rasterized to an aspect-correct high-res PNG (crisp; pure-vector inline-SVG
+base is on the backlog).
 
 ---
 
