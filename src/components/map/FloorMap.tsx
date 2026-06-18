@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Konva from "konva";
 import { Stage, Layer, Image as KonvaImage, Rect, Line, Text, Group, Transformer } from "react-konva";
-import { Plus, Minus, Maximize2, RotateCw, Lock, Unlock, Trash2, Info } from "lucide-react";
+import { Plus, Minus, Maximize2, RotateCw, Lock, Unlock, Trash2, Info, Download, Copy } from "lucide-react";
 import { useImage } from "@/hooks/useImage";
 import { kindOf, tokenHex } from "@/lib/catalogIndex";
 import { ObjectPalette } from "./ObjectPalette";
@@ -79,6 +79,7 @@ export function FloorMap({
   const [pinching, setPinching] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [live, setLive] = useState<{ w: number; h: number } | null>(null);
+  const [baseOpacity, setBaseOpacity] = useState(1);
   const interactedRef = useRef(false);
   const pinchRef = useRef<{ dist: number } | null>(null);
 
@@ -133,6 +134,31 @@ export function FloorMap({
     },
     [clampScale],
   );
+
+  // Functional zoom (reads latest scale so rapid clicks compound correctly).
+  const zoomByFactor = useCallback(
+    (factor: number) => {
+      interactedRef.current = true;
+      setView((v) => {
+        const s = clampScale(v.scale * factor);
+        const px = size.w / 2;
+        const py = size.h / 2;
+        const wx = (px - v.x) / v.scale;
+        const wy = (py - v.y) / v.scale;
+        return { scale: s, x: px - wx * s, y: py - wy * s };
+      });
+    },
+    [clampScale, size],
+  );
+
+  const exportPng = useCallback(() => {
+    const url = stageRef.current?.toDataURL({ pixelRatio: 2 });
+    if (!url) return;
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "white-party-floorplan.png";
+    a.click();
+  }, []);
 
   const onWheel = useCallback(
     (e: Konva.KonvaEventObject<WheelEvent>) => {
@@ -247,7 +273,7 @@ export function FloorMap({
               shadowOpacity={0.55}
               listening={false}
             />
-            {img && <KonvaImage image={img} width={baseW} height={baseH} listening={false} />}
+            {img && <KonvaImage image={img} width={baseW} height={baseH} listening={false} opacity={baseOpacity} />}
 
             {zones.map((z) => {
               if (!z.points?.length) return null;
@@ -345,14 +371,17 @@ export function FloorMap({
 
       {/* Zoom controls */}
       <div className="absolute right-3 top-3 z-10 flex flex-col gap-1.5">
-        <button onClick={() => { interactedRef.current = true; zoomAt(size.w / 2, size.h / 2, view.scale * 1.3); }} className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-background/85 backdrop-blur" aria-label="Zoom in">
+        <button onClick={() => zoomByFactor(1.3)} className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-background/85 backdrop-blur" aria-label="Zoom in">
           <Plus className="h-4 w-4" />
         </button>
-        <button onClick={() => { interactedRef.current = true; zoomAt(size.w / 2, size.h / 2, view.scale / 1.3); }} className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-background/85 backdrop-blur" aria-label="Zoom out">
+        <button onClick={() => zoomByFactor(1 / 1.3)} className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-background/85 backdrop-blur" aria-label="Zoom out">
           <Minus className="h-4 w-4" />
         </button>
         <button onClick={fit} className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-background/85 backdrop-blur" aria-label="Fit to screen">
           <Maximize2 className="h-4 w-4" />
+        </button>
+        <button onClick={exportPng} className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-background/85 backdrop-blur" aria-label="Export PNG">
+          <Download className="h-4 w-4" />
         </button>
       </div>
 
@@ -360,6 +389,20 @@ export function FloorMap({
       <div className="pointer-events-none absolute bottom-3 left-3 z-10 flex flex-col items-start gap-1">
         <div className="h-1.5 rounded-sm border border-white/70 bg-white/20" style={{ width: `${Math.max(20, ftToPlan(10) * view.scale)}px` }} />
         <span className="text-[10px] font-medium text-white/80">10 ft</span>
+      </div>
+
+      {/* Base plan opacity (ghost the reference) */}
+      <div className="absolute bottom-4 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2 rounded-full border border-border bg-background/85 px-3 py-1.5 backdrop-blur">
+        <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">base</span>
+        <input
+          type="range"
+          min={0.2}
+          max={1}
+          step={0.05}
+          value={baseOpacity}
+          onChange={(e) => setBaseOpacity(Number(e.target.value))}
+          className="h-1 w-24 accent-[#D4AF37]"
+        />
       </div>
 
       {/* Add FAB */}
@@ -387,6 +430,26 @@ export function FloorMap({
           </button>
           {canEdit && (
             <>
+              <button
+                onClick={() =>
+                  onCreate({
+                    kind: selected.kind,
+                    category: selected.category,
+                    label: selected.label,
+                    width_ft: selected.width_ft,
+                    height_ft: selected.height_ft,
+                    rotation: selected.rotation,
+                    color: selected.color,
+                    status: selected.status,
+                    x: selected.x + 60,
+                    y: selected.y + 60,
+                  })
+                }
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-border"
+                aria-label="Duplicate"
+              >
+                <Copy className="h-4 w-4" />
+              </button>
               <button onClick={() => onUpdate(selected.id, { rotation: ((selected.rotation || 0) + 15) % 360 })} className="flex h-8 w-8 items-center justify-center rounded-lg border border-border" aria-label="Rotate">
                 <RotateCw className="h-4 w-4" />
               </button>
