@@ -2,6 +2,7 @@ import { useNow } from "@/hooks/useNow";
 import { useEventData } from "@/hooks/useEventData";
 import { pickNowNext } from "@/lib/runOfShow";
 import { RunOfShowRibbon } from "@/components/RunOfShowRibbon";
+import { WeatherWidget } from "@/components/WeatherWidget";
 import { EightySixBoard } from "@/components/EightySixBoard";
 import { useEventStore } from "@/state/eventStore";
 import { Card, Pill, ProgressBar, SectionTitle, SeedBadge } from "@/components/ui/primitives";
@@ -111,6 +112,8 @@ export function DashboardPage() {
           </div>
         </Card>
       )}
+
+      <WeatherWidget />
 
       {alerts.length > 0 && (
         <div>
