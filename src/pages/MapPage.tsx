@@ -41,6 +41,7 @@ export function MapPage() {
   const { floorPlan, objects, zones, staff, canEdit, isLive, mutate, role } = useEventData();
   const [mode, setMode] = useState<"edit" | "show">("edit");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [layerOpen, setLayerOpen] = useState(false);
   const [rosterZoneId, setRosterZoneId] = useState<string | null>(null);
@@ -163,7 +164,10 @@ export function MapPage() {
           zones={zones as FloorMapZone[]}
           canEdit={canEdit}
           selectedId={selectedId}
-          onSelect={setSelectedId}
+          onSelect={(id) => {
+            setSelectedId(id);
+            if (id) setSelectedZoneId(null);
+          }}
           onMove={(id, x, y) => void mutate("obj.upsert", { id, x, y })}
           onUpdate={(id, patch) => void mutate("obj.upsert", { id, ...patch })}
           onDelete={(id) => {
@@ -175,6 +179,32 @@ export function MapPage() {
           onCreate={(p) => void mutate("obj.upsert", p)}
           staffPins={staffPins}
           onStaffPinTap={(zid) => setRosterZoneId(zid)}
+          selectedZoneId={selectedZoneId}
+          onSelectZone={(id) => {
+            setSelectedZoneId(id);
+            if (id) setSelectedId(null);
+          }}
+          onZoneChange={(id, points) => void mutate("zone.upsert", { id, points })}
+          onZoneDelete={(id) => {
+            void mutate("zone.delete", { id });
+            setSelectedZoneId(null);
+          }}
+          onAddZone={() => {
+            const u = floorPlan.ft_per_unit || 0.028;
+            const cx = (floorPlan.base_width || 1000) / 2;
+            const cy = (floorPlan.base_height || 1000) / 2;
+            const half = 10 / u; // 20 ft square
+            void mutate("zone.upsert", {
+              name: "New Area",
+              color: "vip",
+              points: [
+                { x: cx - half, y: cy - half },
+                { x: cx + half, y: cy - half },
+                { x: cx + half, y: cy + half },
+                { x: cx - half, y: cy + half },
+              ],
+            });
+          }}
         />
       ) : (
         <Suspense

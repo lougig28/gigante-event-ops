@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Konva from "konva";
-import { Stage, Layer, Image as KonvaImage, Rect, Circle, Line, Text, Group, Transformer } from "react-konva";
-import { Plus, Minus, Maximize2, RotateCw, Lock, Unlock, Trash2, Info, Download, Copy } from "lucide-react";
+import { Stage, Layer, Image as KonvaImage, Rect, Circle, Text, Group, Transformer } from "react-konva";
+import { Plus, Minus, Maximize2, RotateCw, Lock, Unlock, Trash2, Info, Download, Copy, Frame } from "lucide-react";
 import { useImage } from "@/hooks/useImage";
 import { kindOf, tokenHex } from "@/lib/catalogIndex";
 import { ObjectPalette } from "./ObjectPalette";
@@ -50,7 +50,26 @@ interface Props {
   onCreate: (payload: Record<string, unknown>) => void;
   staffPins?: Array<{ id: string; x: number; y: number; total: number }>;
   onStaffPinTap?: (zoneId: string) => void;
+  selectedZoneId?: string | null;
+  onSelectZone?: (id: string | null) => void;
+  onZoneChange?: (id: string, points: { x: number; y: number }[]) => void;
+  onZoneDelete?: (id: string) => void;
+  onAddZone?: () => void;
 }
+
+function zoneRect(z: FloorMapZone) {
+  const xs = z.points.map((p) => p.x);
+  const ys = z.points.map((p) => p.y);
+  const rx = Math.min(...xs);
+  const ry = Math.min(...ys);
+  return { rx, ry, rw: Math.max(...xs) - rx, rh: Math.max(...ys) - ry };
+}
+const rectToPoints = (x: number, y: number, w: number, h: number) => [
+  { x, y },
+  { x: x + w, y },
+  { x: x + w, y: y + h },
+  { x, y: y + h },
+];
 
 function ftIn(ft: number): string {
   const totalIn = Math.round(ft * 12);
@@ -73,11 +92,17 @@ export function FloorMap({
   onCreate,
   staffPins,
   onStaffPinTap,
+  selectedZoneId,
+  onSelectZone,
+  onZoneChange,
+  onZoneDelete,
+  onAddZone,
 }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const trRef = useRef<Konva.Transformer>(null);
   const nodeRefs = useRef<Record<string, Konva.Group>>({});
+  const zoneRefs = useRef<Record<string, Konva.Group>>({});
   const [size, setSize] = useState({ w: 0, h: 0 });
   const [view, setView] = useState({ scale: 1, x: 0, y: 0 });
   const [pinching, setPinching] = useState(false);
@@ -201,20 +226,24 @@ export function FloorMap({
     setPinching(false);
   }, []);
 
-  // Attach transformer to the selected (editable, unlocked) node
+  // Attach transformer to the selected object or zone
   useEffect(() => {
     const tr = trRef.current;
     if (!tr) return;
     const sel = objects.find((o) => o.id === selectedId);
-    const node = selectedId ? nodeRefs.current[selectedId] : null;
-    if (node && canEdit && sel && !sel.locked) {
-      tr.nodes([node]);
+    const objNode = selectedId ? nodeRefs.current[selectedId] : null;
+    const zoneNode = selectedZoneId ? zoneRefs.current[selectedZoneId] : null;
+    if (objNode && canEdit && sel && !sel.locked) {
+      tr.nodes([objNode]);
       tr.keepRatio(!!kindOf(sel.kind)?.keepAspect);
+    } else if (zoneNode && canEdit) {
+      tr.nodes([zoneNode]);
+      tr.keepRatio(false);
     } else {
       tr.nodes([]);
     }
     tr.getLayer()?.batchDraw();
-  }, [selectedId, objects, canEdit, view.scale]);
+  }, [selectedId, selectedZoneId, objects, zones, canEdit, view.scale]);
 
   const addObject = (kind: string) => {
     const def = kindOf(kind);
@@ -234,6 +263,8 @@ export function FloorMap({
   };
 
   const selected = objects.find((o) => o.id === selectedId) ?? null;
+  const selectedZone = zones.find((z) => z.id === selectedZoneId) ?? null;
+  const selectedZoneSize = selectedZone ? zoneRect(selectedZone) : null;
   const k = 1 / view.scale;
 
   return (
@@ -262,10 +293,16 @@ export function FloorMap({
             }
           }}
           onMouseDown={(e) => {
-            if (e.target === e.target.getStage()) onSelect(null);
+            if (e.target === e.target.getStage()) {
+              onSelect(null);
+              onSelectZone?.(null);
+            }
           }}
           onTouchStart={(e) => {
-            if (e.target === e.target.getStage() && e.evt.touches.length === 1) onSelect(null);
+            if (e.target === e.target.getStage() && e.evt.touches.length === 1) {
+              onSelect(null);
+              onSelectZone?.(null);
+            }
           }}
         >
           <Layer>
@@ -285,17 +322,50 @@ export function FloorMap({
 
             {zones.map((z) => {
               if (!z.points?.length) return null;
-              const flat = z.points.flatMap((p) => [p.x, p.y]);
-              const cx = z.points.reduce((s, p) => s + p.x, 0) / z.points.length;
-              const cy = z.points.reduce((s, p) => s + p.y, 0) / z.points.length;
+              const { rx, ry, rw, rh } = zoneRect(z);
               const hex = tokenHex(z.color);
+              const isSel = z.id === selectedZoneId;
               return (
-                <Group key={z.id} listening={false}>
-                  <Line points={flat} closed fill={z.name === "Pool" ? "transparent" : hex + "14"} stroke={hex + "70"} strokeWidth={2.2 * k} dash={[10 * k, 8 * k]} />
+                <Group
+                  key={z.id}
+                  ref={(n) => {
+                    if (n) zoneRefs.current[z.id] = n;
+                    else delete zoneRefs.current[z.id];
+                  }}
+                  x={rx}
+                  y={ry}
+                  draggable={canEdit && isSel}
+                  listening={canEdit}
+                  onClick={() => onSelectZone?.(z.id)}
+                  onTap={() => onSelectZone?.(z.id)}
+                  onDragEnd={(e) => {
+                    const g = 0.5 / ftPerUnit; // snap to 6"
+                    onZoneChange?.(z.id, rectToPoints(Math.round(e.target.x() / g) * g, Math.round(e.target.y() / g) * g, rw, rh));
+                  }}
+                  onTransformEnd={(e) => {
+                    const n = e.target;
+                    const nw = Math.max(2 / ftPerUnit, rw * Math.abs(n.scaleX()));
+                    const nh = Math.max(2 / ftPerUnit, rh * Math.abs(n.scaleY()));
+                    n.scaleX(1);
+                    n.scaleY(1);
+                    onZoneChange?.(z.id, rectToPoints(n.x(), n.y(), nw, nh));
+                  }}
+                >
+                  <Rect
+                    x={0}
+                    y={0}
+                    width={rw}
+                    height={rh}
+                    cornerRadius={6 * k}
+                    fill={hex + (isSel ? "3a" : "20")}
+                    stroke={hex + (isSel ? "ff" : "aa")}
+                    strokeWidth={(isSel ? 3 : 2) * k}
+                    dash={isSel ? undefined : [10 * k, 8 * k]}
+                  />
                   <Text
                     text={z.name.toUpperCase()}
-                    x={cx}
-                    y={cy}
+                    x={rw / 2}
+                    y={rh / 2}
                     width={4000}
                     offsetX={2000}
                     offsetY={9 * k}
@@ -304,7 +374,8 @@ export function FloorMap({
                     fontStyle="bold"
                     letterSpacing={Math.min(2 * k, 26)}
                     fill={hex}
-                    opacity={view.scale > fitScale * 2.4 ? 0.16 : 0.5}
+                    opacity={view.scale > fitScale * 2.4 ? 0.32 : 0.78}
+                    listening={false}
                   />
                 </Group>
               );
@@ -405,6 +476,11 @@ export function FloorMap({
         <button onClick={exportPng} className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-background/85 backdrop-blur" aria-label="Export PNG">
           <Download className="h-4 w-4" />
         </button>
+        {canEdit && (
+          <button onClick={() => onAddZone?.()} className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-background/85 backdrop-blur" aria-label="Add area">
+            <Frame className="h-4 w-4 text-gold" />
+          </button>
+        )}
       </div>
 
       {/* Scale bar */}
@@ -482,6 +558,26 @@ export function FloorMap({
                 <Trash2 className="h-4 w-4" />
               </button>
             </>
+          )}
+        </div>
+      )}
+
+      {/* Selected AREA readout + toolbar */}
+      {selectedZone && !selected && selectedZoneSize && (
+        <div className="absolute inset-x-3 bottom-20 z-10 mx-auto flex max-w-sm items-center gap-2 rounded-xl border border-border bg-background/95 px-3 py-2 shadow-lg backdrop-blur">
+          <Frame className="h-4 w-4 shrink-0 text-gold" />
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-sm font-semibold">
+              {selectedZone.name} <span className="font-normal text-muted-foreground">· area</span>
+            </div>
+            <div className="tabular-nums text-xs text-muted-foreground">
+              {ftIn(selectedZoneSize.rw * ftPerUnit)} × {ftIn(selectedZoneSize.rh * ftPerUnit)} · drag to move · handles to resize
+            </div>
+          </div>
+          {canEdit && (
+            <button onClick={() => onZoneDelete?.(selectedZone.id)} className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-crit" aria-label="Delete area">
+              <Trash2 className="h-4 w-4" />
+            </button>
           )}
         </div>
       )}
