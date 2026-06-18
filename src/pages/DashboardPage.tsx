@@ -5,7 +5,7 @@ import { RunOfShowRibbon } from "@/components/RunOfShowRibbon";
 import { EightySixBoard } from "@/components/EightySixBoard";
 import { useEventStore } from "@/state/eventStore";
 import { Card, Pill, ProgressBar, SectionTitle, SeedBadge } from "@/components/ui/primitives";
-import { Wine, Users, ListChecks, Crown, Activity, Clock } from "lucide-react";
+import { Wine, Users, ListChecks, Crown, Activity, Clock, AlertTriangle } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 const money = (n: number | null) => (n == null ? "—" : `$${n.toLocaleString()}`);
@@ -42,9 +42,38 @@ const connTone = (state: string) =>
 
 export function DashboardPage() {
   const now = useNow(15_000);
-  const { runOfShow, metrics, connectors, counts, metricsLive } = useEventData();
-  const { current, next } = pickNowNext(runOfShow, now);
+  const { runOfShow, metrics, connectors, counts, metricsLive, staff } = useEventData();
+  const { current, next, preEvent } = pickNowNext(runOfShow, now);
   const token = useEventStore((s) => s.token);
+
+  const PHASE_LABEL: Record<string, string> = {
+    setup: "Setup", doors: "Doors", service: "Service", feature: "Show",
+    peak: "Peak", last_call: "Last Call", close: "Close", breakdown: "Breakdown",
+  };
+  const PHASE_TONE: Record<string, "muted" | "pool" | "gold" | "vip" | "crit" | "warn"> = {
+    setup: "muted", doors: "pool", service: "gold", feature: "vip",
+    peak: "crit", last_call: "warn", close: "crit", breakdown: "muted",
+  };
+  const phase = preEvent ? "setup" : (current?.phase ?? "setup");
+
+  const nowMs = now.getTime();
+  const alerts: { id: string; tone: "warn" | "crit"; text: string }[] = [];
+  if (!preEvent) {
+    const overdue = staff.filter((s) => s.check === "scheduled" && s.callTime && new Date(s.callTime).getTime() < nowMs);
+    if (overdue.length) alerts.push({ id: "cov", tone: "warn", text: `${overdue.length} staff past call time, not checked in` });
+    if (counts.tasksTotal && counts.tasksDone / counts.tasksTotal < 0.5)
+      alerts.push({ id: "sw", tone: "warn", text: `Side work ${Math.round((counts.tasksDone / counts.tasksTotal) * 100)}% — ${counts.tasksTotal - counts.tasksDone} tasks open` });
+  }
+  const peakCue = runOfShow.find((c) => c.phase === "peak");
+  if (peakCue) {
+    const m = (new Date(peakCue.time).getTime() - nowMs) / 60000;
+    if (m > 0 && m < 60) alerts.push({ id: "pk", tone: "warn", text: `Peak crush in ${Math.round(m)} min — all hands to the rail` });
+  }
+  const lcCue = runOfShow.find((c) => c.phase === "last_call");
+  if (lcCue) {
+    const m = (new Date(lcCue.time).getTime() - nowMs) / 60000;
+    if (m > 0 && m < 90) alerts.push({ id: "lc", tone: "crit", text: `Last call in ${Math.round(m)} min` });
+  }
   const fmt = (iso: string) =>
     new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" });
 
@@ -56,7 +85,10 @@ export function DashboardPage() {
             <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-gold">
               <Activity className="h-3.5 w-3.5" /> Now
             </span>
-            <span className="tabular-nums text-xs text-muted-foreground">{fmt(current.time)}</span>
+            <div className="flex items-center gap-2">
+              <Pill tone={PHASE_TONE[phase]}>{PHASE_LABEL[phase]}</Pill>
+              <span className="tabular-nums text-xs text-muted-foreground">{fmt(current.time)}</span>
+            </div>
           </div>
           <div className="px-4 py-3">
             <div className="text-lg font-semibold">{current.title}</div>
@@ -71,6 +103,23 @@ export function DashboardPage() {
             )}
           </div>
         </Card>
+      )}
+
+      {alerts.length > 0 && (
+        <div>
+          <SectionTitle right={<Pill tone="crit">{alerts.length}</Pill>}>Alerts</SectionTitle>
+          <div className="space-y-1.5">
+            {alerts.map((a) => (
+              <div
+                key={a.id}
+                className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${a.tone === "crit" ? "border-crit/40 bg-crit/10" : "border-warn/40 bg-warn/10"}`}
+              >
+                <AlertTriangle className={`h-4 w-4 shrink-0 ${a.tone === "crit" ? "text-crit" : "text-warn"}`} />
+                <span className="text-foreground">{a.text}</span>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
       {runOfShow.length > 0 && (
