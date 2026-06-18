@@ -1,10 +1,11 @@
-// Gigante Event Ops — connector sync (Toast sales/drinks + SevenRooms reservations).
+// Gigante Event Ops — connector sync (Toast sales/drinks/VIP-spend/crew-clock-in + SevenRooms).
 // Deployed to Supabase Edge Functions; invoked every 60s by pg_cron (see migrations).
 // Secrets (Supabase → Edge Functions → Secrets): TOAST_CLIENT_ID, TOAST_CLIENT_SECRET,
 // optional TOAST_RESTAURANT_GUID; SEVENROOMS_CLIENT_ID/SECRET/VENUE_ID; optional SYNC_KEY.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.48.0";
 
 const DEFAULT_GUID = "54df1082-cbd6-4fc2-9cc2-9b64d9d6c5a6"; // Gigante R&B
+const VIP_RC_GUID = "06bee7a2-4269-46af-bb61-c7935d5fd195"; // Toast revenue center: "VIP Bottle Service"
 
 // Business date in the restaurant's timezone (ET) — NOT UTC — so the 8pm–1am
 // party window (which crosses midnight UTC) maps to the right Toast day.
@@ -48,7 +49,7 @@ function nameMatch(rosterName: string, toastName: string): boolean {
 
 async function syncToast(
   eventDate?: string,
-): Promise<{ state: string; message: string; netSales?: number; drinks?: number }> {
+): Promise<{ state: string; message: string; netSales?: number; drinks?: number; vipSpend?: number }> {
   const id = Deno.env.get("TOAST_CLIENT_ID");
   const secret = Deno.env.get("TOAST_CLIENT_SECRET");
   const guid = (Deno.env.get("TOAST_RESTAURANT_GUID") || DEFAULT_GUID).trim();
@@ -77,15 +78,19 @@ async function syncToast(
       .catch(() => []);
     let net = 0,
       n = 0,
-      items = 0;
+      items = 0,
+      vip = 0;
     for (const o of Array.isArray(orders) ? orders : []) {
       n++;
+      const rc = o.revenueCenter?.guid ?? null;
       for (const c of o.checks ?? []) {
-        net += c.totalAmount ?? 0;
+        const amt = c.totalAmount ?? 0;
+        net += amt;
         items += c.selections?.length ?? 0;
+        if (rc === VIP_RC_GUID) vip += amt; // VIP Bottle Service revenue center → owner VIP spend
       }
     }
-    return { state: "live", message: `${rname ?? "restaurant"} · ${n} orders (${biz})`, netSales: Math.round(net), drinks: items };
+    return { state: "live", message: `${rname ?? "restaurant"} · ${n} orders (${biz})`, netSales: Math.round(net), drinks: items, vipSpend: Math.round(vip) };
   } catch (e) {
     return { state: "error", message: String(e).slice(0, 140) };
   }
@@ -256,6 +261,7 @@ Deno.serve(async (req) => {
     };
     if (toast.netSales != null) patch.net_sales = toast.netSales;
     if (toast.drinks != null) patch.drink_count = toast.drinks;
+    if (toast.vipSpend != null) patch.vip_spend = toast.vipSpend;
     if (sr.guestsIn != null) patch.guests_in = sr.guestsIn;
     await sb.from("event_metrics").update(patch).eq("event_id", id);
     const stamp = new Date().toISOString();

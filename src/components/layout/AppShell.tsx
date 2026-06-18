@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { NavLink, Outlet, useLocation, Navigate } from "react-router-dom";
-import { Activity, Map as MapIcon, Users, ListChecks, MoreHorizontal, Lock, LockOpen } from "lucide-react";
+import { Activity, Map as MapIcon, Users, ListChecks, MoreHorizontal, Lock, LockOpen, Radio } from "lucide-react";
 import { useNow } from "@/hooks/useNow";
 import { useEventData } from "@/hooks/useEventData";
 import { useEventStore } from "@/state/eventStore";
@@ -30,9 +30,11 @@ const tabs = [
 export function AppShell() {
   const { event, role, isLive, status } = useEventData();
   const { pathname } = useLocation();
-  // The Map is a layout editor — let it use the full desktop width; the
-  // card-based pages stay in the comfortable mobile column.
+  // The Map is a layout editor and the owner Feed is a command board — both use the
+  // full desktop width; the card-based pages stay in the comfortable mobile column.
   const isMap = pathname.startsWith("/map");
+  const isFeed = pathname.startsWith("/feed");
+  const isWide = isMap || isFeed;
 
   useEffect(() => {
     void useEventStore.getState().init();
@@ -56,18 +58,25 @@ export function AppShell() {
   // viewers) get the operational tabs only — Map / Staff / Side Work — never the
   // Live dashboard or More (admin), which are management-only.
   const managementView = editUnlocked || (isLive && roleCanEdit(role));
-  const visibleTabs = managementView ? tabs : tabs.filter((t) => ["/map", "/staff", "/sidework"].includes(t.to));
+  // The owner gets a private live feed (financials + activity stream); managers and
+  // line staff never see the tab and can't reach the route.
+  const isOwner = role === "owner";
+  const baseTabs = isOwner ? [{ to: "/feed", label: "Feed", icon: Radio, end: false }, ...tabs] : tabs;
+  const visibleTabs = managementView ? baseTabs : tabs.filter((t) => ["/map", "/staff", "/sidework"].includes(t.to));
   const ready = status !== "idle" && status !== "loading";
   const redirectStaff = ready && !managementView && (pathname === "/" || pathname.startsWith("/more"));
+  const redirectFeed = ready && !isOwner && isFeed;
 
   const dot = isLive ? "bg-ok" : status === "error" ? "bg-crit" : "bg-warn";
   const stateLabel = isLive ? "live" : status === "error" ? "offline" : "seed";
 
+  // The feed is owner-only; bounce anyone else who lands on the route.
+  if (redirectFeed) return <Navigate to={managementView ? "/" : "/map"} replace />;
   // Staff don't get the dashboard or admin — send them to the operational map.
   if (redirectStaff) return <Navigate to="/map" replace />;
 
   return (
-    <div className={cn("mx-auto flex min-h-[100svh] flex-col bg-background", isMap ? "max-w-md lg:max-w-none" : "max-w-md")}>
+    <div className={cn("mx-auto flex min-h-[100svh] flex-col bg-background", isWide ? "max-w-md lg:max-w-none" : "max-w-md")}>
       <header className="safe-t sticky top-0 z-20 border-b border-border/70 bg-background/80 backdrop-blur-md">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="min-w-0">
@@ -105,7 +114,7 @@ export function AppShell() {
         <Outlet />
       </main>
 
-      <nav className={cn("safe-b fixed inset-x-0 bottom-0 z-20 mx-auto flex items-stretch justify-around border-t border-border/70 bg-background/90 backdrop-blur-md", isMap ? "max-w-md lg:max-w-none" : "max-w-md")}>
+      <nav className={cn("safe-b fixed inset-x-0 bottom-0 z-20 mx-auto flex items-stretch justify-around border-t border-border/70 bg-background/90 backdrop-blur-md", isWide ? "max-w-md lg:max-w-none" : "max-w-md")}>
         {visibleTabs.map(({ to, label, icon: Icon, end }) => (
           <NavLink
             key={to}

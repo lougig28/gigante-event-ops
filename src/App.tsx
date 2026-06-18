@@ -5,6 +5,7 @@ import { DashboardPage } from "@/pages/DashboardPage";
 import { StaffingPage } from "@/pages/StaffingPage";
 import { SideWorkPage } from "@/pages/SideWorkPage";
 import { MorePage } from "@/pages/MorePage";
+import { FeedPage } from "@/pages/FeedPage";
 
 // Konva + object catalog are heavy — load them only when the map is opened.
 const MapPage = lazy(() => import("@/pages/MapPage").then((m) => ({ default: m.MapPage })));
@@ -20,6 +21,7 @@ export default function App() {
     <Routes>
       <Route element={<AppShell />}>
         <Route index element={<DashboardPage />} />
+        <Route path="feed" element={<FeedPage />} />
         <Route
           path="map"
           element={
