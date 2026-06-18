@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Konva from "konva";
-import { Stage, Layer, Image as KonvaImage, Rect, Circle, Line, Text, Group, Transformer } from "react-konva";
+import { Stage, Layer, Image as KonvaImage, Rect, Line, Text, Group, Transformer } from "react-konva";
 import { Plus, Minus, Maximize2, RotateCw, Lock, Unlock, Trash2, Info } from "lucide-react";
 import { useImage } from "@/hooks/useImage";
 import { kindOf, tokenHex } from "@/lib/catalogIndex";
 import { ObjectPalette } from "./ObjectPalette";
+import { ObjectShape } from "./ObjectShape";
 
 export interface FloorMapObject {
   id: string;
@@ -48,14 +49,6 @@ interface Props {
   onOpenDetails: (obj: FloorMapObject) => void;
   onCreate: (payload: Record<string, unknown>) => void;
 }
-
-const STATUS_STROKE: Record<string, string> = {
-  ok: "#D4AF37",
-  setup: "#FBBF24",
-  attention: "#FB923C",
-  down: "#F87171",
-  vip: "#E0A458",
-};
 
 function ftIn(ft: number): string {
   const totalIn = Math.round(ft * 12);
@@ -284,14 +277,8 @@ export function FloorMap({
             })}
 
             {objects.map((o) => {
-              const def = kindOf(o.kind);
               const pw = ftToPlan(o.width_ft);
               const ph = ftToPlan(o.height_ft);
-              const isSel = o.id === selectedId;
-              const fill = tokenHex(o.color ?? def?.color);
-              const stroke = isSel ? "#FFFFFF" : STATUS_STROKE[o.status] ?? "#D4AF37";
-              const round = def?.shape === "circle" || def?.keepAspect;
-              const showLabel = pw * view.scale > 46 && o.label;
               return (
                 <Group
                   key={o.id}
@@ -327,34 +314,15 @@ export function FloorMap({
                     });
                   }}
                 >
-                  {round ? (
-                    <Circle radius={pw / 2} fill={fill} opacity={0.85} stroke={stroke} strokeWidth={(isSel ? 3 : 1.5) * k} />
-                  ) : (
-                    <Rect
-                      x={-pw / 2}
-                      y={-ph / 2}
-                      width={pw}
-                      height={ph}
-                      cornerRadius={Math.min(pw, ph) * 0.08}
-                      fill={fill}
-                      opacity={0.85}
-                      stroke={stroke}
-                      strokeWidth={(isSel ? 3 : 1.5) * k}
-                    />
-                  )}
-                  {showLabel && (
-                    <Text
-                      text={o.label ?? ""}
-                      fontSize={12 * k}
-                      fontStyle="bold"
-                      fill="#0b0b0d"
-                      align="center"
-                      width={pw * 1.6}
-                      offsetX={pw * 0.8}
-                      offsetY={6 * k}
-                      listening={false}
-                    />
-                  )}
+                  <ObjectShape
+                    o={o}
+                    pw={pw}
+                    ph={ph}
+                    upf={1 / ftPerUnit}
+                    selected={o.id === selectedId}
+                    rotation={o.rotation || 0}
+                    showLabel={pw * view.scale > 46}
+                  />
                 </Group>
               );
             })}
