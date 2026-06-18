@@ -1,16 +1,12 @@
 import { useNow } from "@/hooks/useNow";
+import { useEventData } from "@/hooks/useEventData";
+import { pickNowNext } from "@/lib/runOfShow";
 import { Card, Pill, ProgressBar, SectionTitle, SeedBadge } from "@/components/ui/primitives";
-import {
-  wpMetricsSeed,
-  wpConnectors,
-  staffScheduled,
-  staffCheckedIn,
-  tasksDone,
-  tasksTotal,
-  nowNextCue,
-} from "@/data/whiteParty";
 import { Wine, Users, ListChecks, Crown, Activity, Clock } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+
+const money = (n: number | null) => (n == null ? "—" : `$${n.toLocaleString()}`);
+const num = (n: number | null) => (n == null ? "—" : n.toLocaleString());
 
 function Stat({
   icon: Icon,
@@ -25,8 +21,7 @@ function Stat({
   sub?: string;
   tone?: "gold" | "pool" | "ok" | "vip";
 }) {
-  const ring =
-    tone === "pool" ? "text-pool" : tone === "ok" ? "text-ok" : tone === "vip" ? "text-vip" : "text-gold";
+  const ring = tone === "pool" ? "text-pool" : tone === "ok" ? "text-ok" : tone === "vip" ? "text-vip" : "text-gold";
   return (
     <Card className="p-3">
       <div className="flex items-center gap-1.5 text-muted-foreground">
@@ -39,54 +34,63 @@ function Stat({
   );
 }
 
+const connTone = (state: string) =>
+  state === "live" || state === "polling" ? "ok" : state === "error" ? "crit" : state === "off" ? "muted" : "warn";
+
 export function DashboardPage() {
   const now = useNow(15_000);
-  const { current, next } = nowNextCue(now);
+  const { runOfShow, metrics, connectors, counts, metricsLive } = useEventData();
+  const { current, next } = pickNowNext(runOfShow, now);
   const fmt = (iso: string) =>
     new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" });
 
   return (
     <div className="space-y-4">
-      {/* Now / Next run-of-show */}
-      <Card className="overflow-hidden">
-        <div className="flex items-center justify-between bg-gold/10 px-4 py-2">
-          <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-gold">
-            <Activity className="h-3.5 w-3.5" /> Now
-          </span>
-          <span className="tabular-nums text-xs text-muted-foreground">{fmt(current.time)}</span>
-        </div>
-        <div className="px-4 py-3">
-          <div className="text-lg font-semibold">{current.title}</div>
-          <p className="mt-0.5 text-sm text-muted-foreground">{current.detail}</p>
-          {next && (
-            <div className="mt-3 flex items-center gap-2 border-t border-border/60 pt-3 text-sm">
-              <Clock className="h-4 w-4 text-muted-foreground" />
-              <span className="tabular-nums font-medium text-foreground">{fmt(next.time)}</span>
-              <span className="text-muted-foreground">· Next:</span>
-              <span className="font-medium">{next.title}</span>
-            </div>
-          )}
-        </div>
-      </Card>
+      {current && (
+        <Card className="overflow-hidden">
+          <div className="flex items-center justify-between bg-gold/10 px-4 py-2">
+            <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-gold">
+              <Activity className="h-3.5 w-3.5" /> Now
+            </span>
+            <span className="tabular-nums text-xs text-muted-foreground">{fmt(current.time)}</span>
+          </div>
+          <div className="px-4 py-3">
+            <div className="text-lg font-semibold">{current.title}</div>
+            <p className="mt-0.5 text-sm text-muted-foreground">{current.detail}</p>
+            {next && (
+              <div className="mt-3 flex items-center gap-2 border-t border-border/60 pt-3 text-sm">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                <span className="tabular-nums font-medium text-foreground">{fmt(next.time)}</span>
+                <span className="text-muted-foreground">· Next:</span>
+                <span className="font-medium">{next.title}</span>
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
 
-      {/* Live metrics */}
       <div>
-        <SectionTitle right={<SeedBadge />}>Live numbers</SectionTitle>
+        <SectionTitle right={!metricsLive ? <SeedBadge /> : <Pill tone="ok">live</Pill>}>Live numbers</SectionTitle>
         <div className="grid grid-cols-2 gap-2">
-          <Stat icon={Wine} label="Net sales" value={`$${wpMetricsSeed.netSales.toLocaleString()}`} sub="Toast · poolside + indoor" />
+          <Stat icon={Wine} label="Net sales" value={money(metrics.netSales)} sub="Toast · poolside + indoor" />
           <Stat
             icon={Activity}
             label="Drinks"
-            value={wpMetricsSeed.drinkCount.toLocaleString()}
-            sub={`of ${wpMetricsSeed.drinkTarget.toLocaleString()} target`}
+            value={num(metrics.drinkCount)}
+            sub={`of ${metrics.drinkTarget.toLocaleString()} target`}
             tone="pool"
           />
-          <Stat icon={Users} label="Guests in" value={wpMetricsSeed.guestsIn.toLocaleString()} sub="capacity —" tone="pool" />
-          <Stat icon={Crown} label="VIP spend" value={`$${wpMetricsSeed.vipSpend.toLocaleString()}`} sub="across VIP tables" tone="vip" />
+          <Stat
+            icon={Users}
+            label="Guests in"
+            value={num(metrics.guestsIn)}
+            sub={metrics.capacity ? `of ${metrics.capacity} cap` : "capacity —"}
+            tone="pool"
+          />
+          <Stat icon={Crown} label="VIP spend" value={money(metrics.vipSpend)} sub="across VIP tables" tone="vip" />
         </div>
       </div>
 
-      {/* Staff + tasks roll-up */}
       <div className="grid grid-cols-2 gap-2">
         <Card className="p-3">
           <div className="flex items-center gap-1.5 text-muted-foreground">
@@ -94,11 +98,11 @@ export function DashboardPage() {
             <span className="text-[11px] font-medium uppercase tracking-wide">Checked in</span>
           </div>
           <div className="mt-1 text-2xl font-bold tabular-nums">
-            {staffCheckedIn}
-            <span className="text-base font-medium text-muted-foreground"> / {staffScheduled}</span>
+            {counts.staffCheckedIn}
+            <span className="text-base font-medium text-muted-foreground"> / {counts.staffScheduled}</span>
           </div>
           <div className="mt-2">
-            <ProgressBar value={(staffCheckedIn / staffScheduled) * 100} tone="ok" />
+            <ProgressBar value={counts.staffScheduled ? (counts.staffCheckedIn / counts.staffScheduled) * 100 : 0} tone="ok" />
           </div>
         </Card>
         <Card className="p-3">
@@ -107,26 +111,25 @@ export function DashboardPage() {
             <span className="text-[11px] font-medium uppercase tracking-wide">Side work</span>
           </div>
           <div className="mt-1 text-2xl font-bold tabular-nums">
-            {tasksDone}
-            <span className="text-base font-medium text-muted-foreground"> / {tasksTotal}</span>
+            {counts.tasksDone}
+            <span className="text-base font-medium text-muted-foreground"> / {counts.tasksTotal}</span>
           </div>
           <div className="mt-2">
-            <ProgressBar value={(tasksDone / tasksTotal) * 100} tone="gold" />
+            <ProgressBar value={counts.tasksTotal ? (counts.tasksDone / counts.tasksTotal) * 100 : 0} tone="gold" />
           </div>
         </Card>
       </div>
 
-      {/* Connectors honesty row */}
       <div>
         <SectionTitle>Connectors</SectionTitle>
         <Card className="divide-y divide-border/60">
-          {wpConnectors.map((c) => (
+          {connectors.map((c) => (
             <div key={c.id} className="flex items-center justify-between px-3 py-2.5">
               <div className="min-w-0">
                 <div className="text-sm font-medium">{c.label}</div>
                 <div className="truncate text-xs text-muted-foreground">{c.note}</div>
               </div>
-              <Pill tone={c.state === "stubbed" ? "warn" : "muted"}>{c.state}</Pill>
+              <Pill tone={connTone(c.state)}>{c.state}</Pill>
             </div>
           ))}
         </Card>

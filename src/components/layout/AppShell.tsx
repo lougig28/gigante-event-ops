@@ -1,7 +1,10 @@
+import { useEffect } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { Activity, Map as MapIcon, Users, ListChecks, MoreHorizontal } from "lucide-react";
 import { useNow } from "@/hooks/useNow";
-import { wpEvent } from "@/data/whiteParty";
+import { useEventData } from "@/hooks/useEventData";
+import { useEventStore } from "@/state/eventStore";
+import { ROLE_LABELS } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const tabs = [
@@ -14,11 +17,19 @@ const tabs = [
 
 export function AppShell() {
   const now = useNow();
+  const { event, role, isLive, status } = useEventData();
+
+  useEffect(() => {
+    void useEventStore.getState().init();
+  }, []);
+
   const time = now.toLocaleTimeString("en-US", {
     hour: "numeric",
     minute: "2-digit",
     timeZone: "America/New_York",
   });
+  const dot = isLive ? "bg-ok" : status === "error" ? "bg-crit" : "bg-warn";
+  const stateLabel = isLive ? "live" : status === "error" ? "offline" : "seed";
 
   return (
     <div className="mx-auto flex min-h-[100svh] max-w-md flex-col bg-background">
@@ -27,13 +38,17 @@ export function AppShell() {
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <span className="font-['Playfair_Display',serif] text-lg font-bold leading-none text-gold">G</span>
-              <h1 className="truncate text-sm font-semibold">{wpEvent.name}</h1>
+              <h1 className="truncate text-sm font-semibold">{event.name}</h1>
             </div>
-            <p className="truncate text-xs text-muted-foreground">{wpEvent.venue}</p>
+            <p className="truncate text-xs text-muted-foreground">{event.venue}</p>
           </div>
           <div className="flex shrink-0 flex-col items-end">
             <span className="tabular-nums text-sm font-semibold leading-none">{time}</span>
-            <span className="mt-0.5 text-[10px] uppercase tracking-wider text-gold">Owner</span>
+            <span className="mt-1 flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+              <span className="font-semibold text-gold">{ROLE_LABELS[role]}</span>
+              <span className={cn("inline-block h-1.5 w-1.5 rounded-full", dot)} />
+              {stateLabel}
+            </span>
           </div>
         </div>
       </header>

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Card, Pill, ProgressBar } from "@/components/ui/primitives";
-import { wpChecklists, type SeedChecklist } from "@/data/whiteParty";
+import { useEventData } from "@/hooks/useEventData";
+import type { SeedChecklist } from "@/data/whiteParty";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -11,16 +12,22 @@ const kindTone: Record<SeedChecklist["kind"], "pool" | "gold" | "crit"> = {
 };
 
 export function SideWorkPage() {
-  // Local optimistic toggle for the preview; persists to Supabase + Realtime once live.
-  const [done, setDone] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(wpChecklists.flatMap((c) => c.items.map((i) => [i.id, i.done]))),
-  );
+  const { checklists, isLive, mutate } = useEventData();
+  const [optimistic, setOptimistic] = useState<Record<string, boolean>>({});
+
+  const doneOf = (id: string, fallback: boolean) => optimistic[id] ?? fallback;
+
+  const toggle = (id: string, current: boolean) => {
+    const nextDone = !current;
+    setOptimistic((o) => ({ ...o, [id]: nextDone }));
+    if (isLive) void mutate("task.status", { id, status: nextDone ? "done" : "todo" });
+  };
 
   return (
     <div className="space-y-4">
-      {wpChecklists.map((cl) => {
+      {checklists.map((cl) => {
         const total = cl.items.length;
-        const complete = cl.items.filter((i) => done[i.id]).length;
+        const complete = cl.items.filter((i) => doneOf(i.id, i.done)).length;
         return (
           <div key={cl.id}>
             <div className="flex items-center justify-between px-1 pb-2">
@@ -33,15 +40,15 @@ export function SideWorkPage() {
               </span>
             </div>
             <div className="mb-2 px-1">
-              <ProgressBar value={(complete / total) * 100} tone={cl.kind === "opening" ? "pool" : "gold"} />
+              <ProgressBar value={total ? (complete / total) * 100 : 0} tone={cl.kind === "opening" ? "pool" : "gold"} />
             </div>
             <Card className="divide-y divide-border/60">
               {cl.items.map((item) => {
-                const isDone = done[item.id];
+                const isDone = doneOf(item.id, item.done);
                 return (
                   <button
                     key={item.id}
-                    onClick={() => setDone((d) => ({ ...d, [item.id]: !d[item.id] }))}
+                    onClick={() => toggle(item.id, isDone)}
                     className="flex w-full items-start gap-3 px-3 py-2.5 text-left"
                   >
                     <span
