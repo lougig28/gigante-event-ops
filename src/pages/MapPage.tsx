@@ -1,14 +1,41 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { useEventData } from "@/hooks/useEventData";
+import { useEventStore } from "@/state/eventStore";
 import { FloorMap, type FloorMapObject, type FloorMapZone } from "@/components/map/FloorMap";
 import { ObjectSheet } from "@/components/map/ObjectSheet";
 import { LayerSheet } from "@/components/map/LayerSheet";
 import { ZoneRosterSheet } from "@/components/map/ZoneRosterSheet";
 import { LAYERS, layerOf, defaultLayers } from "@/lib/layers";
 import { Card, Pill } from "@/components/ui/primitives";
-import { Lock, Ruler, Maximize2, Layers as LayersIcon, Box, SquarePen } from "lucide-react";
+import { Lock, Ruler, Maximize2, Layers as LayersIcon, Box, SquarePen, Check, Loader2, CircleAlert } from "lucide-react";
 
 const MapShow3D = lazy(() => import("@/components/map/MapShow3D").then((m) => ({ default: m.MapShow3D })));
+
+/** Live save status for the editor — every drag/resize/add/delete persists immediately. */
+function SaveStatus() {
+  const saving = useEventStore((s) => s.saving);
+  const lastSaved = useEventStore((s) => s.lastSaved);
+  const saveError = useEventStore((s) => s.saveError);
+  if (saving)
+    return (
+      <span className="flex items-center gap-1.5 rounded-full border border-border bg-background/85 px-2.5 py-1 text-xs font-medium text-muted-foreground shadow-sm backdrop-blur">
+        <Loader2 className="h-3.5 w-3.5 animate-spin text-gold" /> Saving…
+      </span>
+    );
+  if (saveError)
+    return (
+      <span className="flex items-center gap-1.5 rounded-full border border-crit/40 bg-crit/10 px-2.5 py-1 text-xs font-medium text-crit shadow-sm backdrop-blur">
+        <CircleAlert className="h-3.5 w-3.5" /> Save failed
+      </span>
+    );
+  if (lastSaved)
+    return (
+      <span className="flex items-center gap-1.5 rounded-full border border-ok/40 bg-ok/10 px-2.5 py-1 text-xs font-medium text-ok shadow-sm backdrop-blur">
+        <Check className="h-3.5 w-3.5" /> Saved
+      </span>
+    );
+  return null;
+}
 
 export function MapPage() {
   const { floorPlan, objects, zones, staff, canEdit, isLive, mutate, role } = useEventData();
@@ -122,6 +149,12 @@ export function MapPage() {
           <Box className="h-3.5 w-3.5" /> 3D
         </button>
       </div>
+
+      {canEdit && mode === "edit" && (
+        <div className="absolute left-1/2 top-14 z-20 -translate-x-1/2">
+          <SaveStatus />
+        </div>
+      )}
 
       {mode === "edit" ? (
         <FloorMap

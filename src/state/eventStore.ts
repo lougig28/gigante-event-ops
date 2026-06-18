@@ -15,6 +15,9 @@ interface EventState {
   error: string | null;
   channel: RealtimeChannel | null;
   lastSync: number | null;
+  saving: boolean;
+  lastSaved: number | null;
+  saveError: string | null;
   init: () => Promise<void>;
   refetch: () => Promise<void>;
   mutate: (action: string, payload?: Record<string, unknown>) => Promise<any>;
@@ -30,6 +33,9 @@ export const useEventStore = create<EventState>((set, get) => ({
   error: null,
   channel: null,
   lastSync: null,
+  saving: false,
+  lastSaved: null,
+  saveError: null,
 
   init: async () => {
     const token = getToken();
@@ -76,12 +82,19 @@ export const useEventStore = create<EventState>((set, get) => ({
   mutate: async (action, payload = {}) => {
     const { token, channel, snapshot } = get();
     if (!token) throw new Error("No token — open with a share link to make changes.");
-    const res = await op(token, action, payload);
-    await get().refetch();
-    const eventId = snapshot?.event?.id as string | undefined;
-    if (channel && eventId) {
-      channel.send({ type: "broadcast", event: "changed", payload: { action } });
+    set({ saving: true, saveError: null });
+    try {
+      const res = await op(token, action, payload);
+      await get().refetch();
+      const eventId = snapshot?.event?.id as string | undefined;
+      if (channel && eventId) {
+        channel.send({ type: "broadcast", event: "changed", payload: { action } });
+      }
+      set({ saving: false, lastSaved: Date.now() });
+      return res;
+    } catch (e) {
+      set({ saving: false, saveError: e instanceof Error ? e.message : String(e) });
+      throw e;
     }
-    return res;
   },
 }));
