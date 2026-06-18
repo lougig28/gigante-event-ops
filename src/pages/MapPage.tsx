@@ -1,14 +1,21 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useEventData } from "@/hooks/useEventData";
 import { FloorMap, type FloorMapObject, type FloorMapZone } from "@/components/map/FloorMap";
 import { ObjectSheet } from "@/components/map/ObjectSheet";
+import { LayerSheet } from "@/components/map/LayerSheet";
+import { LAYERS, layerOf, defaultLayers } from "@/lib/layers";
 import { Card, Pill } from "@/components/ui/primitives";
-import { Lock, Ruler, Maximize2 } from "lucide-react";
+import { Lock, Ruler, Maximize2, Layers as LayersIcon } from "lucide-react";
 
 export function MapPage() {
-  const { floorPlan, objects, zones, staff, canEdit, isLive, mutate } = useEventData();
+  const { floorPlan, objects, zones, staff, canEdit, isLive, mutate, role } = useEventData();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [layerOpen, setLayerOpen] = useState(false);
+  const [visible, setVisible] = useState<Set<string>>(() => defaultLayers(role));
+  useEffect(() => {
+    setVisible(defaultLayers(role));
+  }, [role]);
 
   if (!isLive || !floorPlan) {
     return (
@@ -37,6 +44,13 @@ export function MapPage() {
   const footH = Math.round((floorPlan.base_height || 0) * ftPerUnit);
 
   const objs = objects as FloorMapObject[];
+  const layerCounts: Record<string, number> = {};
+  for (const l of LAYERS) layerCounts[l.id] = 0;
+  objs.forEach((o) => {
+    const id = layerOf(o);
+    layerCounts[id] = (layerCounts[id] ?? 0) + 1;
+  });
+  const shownObjects = objs.filter((o) => visible.has(layerOf(o)));
   const detailObj = objs.find((o) => o.id === detailId) ?? null;
   const detailZone = detailObj ? zones.find((z) => z.id === detailObj.zone_id)?.name ?? null : null;
   const staffInZone = detailZone ? staff.filter((s) => s.zone === detailZone) : [];
@@ -52,9 +66,16 @@ export function MapPage() {
         </Pill>
       </div>
 
+      <button
+        onClick={() => setLayerOpen(true)}
+        className="absolute left-3 top-12 z-10 flex items-center gap-1.5 rounded-lg border border-border bg-background/85 px-2.5 py-1.5 text-xs font-medium backdrop-blur"
+      >
+        <LayersIcon className="h-3.5 w-3.5 text-gold" /> Layers
+      </button>
+
       <FloorMap
         floorPlan={floorPlan}
-        objects={objs}
+        objects={shownObjects}
         zones={zones as FloorMapZone[]}
         canEdit={canEdit}
         selectedId={selectedId}
@@ -77,6 +98,21 @@ export function MapPage() {
         canEdit={canEdit}
         onClose={() => setDetailId(null)}
         onStatus={(status) => detailObj && void mutate("obj.upsert", { id: detailObj.id, status })}
+      />
+
+      <LayerSheet
+        open={layerOpen}
+        onClose={() => setLayerOpen(false)}
+        visible={visible}
+        counts={layerCounts}
+        onToggle={(id) =>
+          setVisible((v) => {
+            const n = new Set(v);
+            if (n.has(id)) n.delete(id);
+            else n.add(id);
+            return n;
+          })
+        }
       />
     </div>
   );
