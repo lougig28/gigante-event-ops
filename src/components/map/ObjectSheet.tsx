@@ -2,7 +2,7 @@ import { Sheet, Pill } from "@/components/ui/primitives";
 import { kindOf, CATEGORY_LABELS } from "@/lib/catalogIndex";
 import type { FloorMapObject } from "./FloorMap";
 import type { SeedStaff, CheckState } from "@/data/whiteParty";
-import { Phone, Ruler, Lock, MapPin } from "lucide-react";
+import { Phone, Ruler, Lock, MapPin, Check, Flag } from "lucide-react";
 
 const STATUS_TONE: Record<string, "ok" | "warn" | "crit" | "vip" | "muted"> = {
   ok: "ok",
@@ -109,6 +109,23 @@ export function ObjectSheet({ obj, zoneName, staffInZone, canEdit, onClose, onSt
             </Pill>
           )}
         </div>
+
+        {canEdit && (
+          <div className="flex gap-2">
+            <button
+              onClick={() => onStatus("ok")}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-ok/40 bg-ok/10 py-2.5 text-sm font-semibold text-ok active:opacity-80"
+            >
+              <Check className="h-4 w-4" /> Ready
+            </button>
+            <button
+              onClick={() => onStatus("attention")}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-warn/40 bg-warn/10 py-2.5 text-sm font-semibold text-warn active:opacity-80"
+            >
+              <Flag className="h-4 w-4" /> Flag
+            </button>
+          </div>
+        )}
 
         {/* Editor: status changer */}
         {canEdit && (

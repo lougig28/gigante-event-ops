@@ -235,7 +235,11 @@ export function FloorMap({
   const k = 1 / view.scale;
 
   return (
-    <div ref={wrapRef} className="relative h-full w-full touch-none overflow-hidden bg-[#0b0b0d]">
+    <div
+      ref={wrapRef}
+      className="relative h-full w-full touch-none overflow-hidden"
+      style={{ background: "radial-gradient(120% 90% at 50% 32%, #16161d 0%, #0a0a0c 72%)" }}
+    >
       {size.w > 0 && (
         <Stage
           ref={stageRef}
